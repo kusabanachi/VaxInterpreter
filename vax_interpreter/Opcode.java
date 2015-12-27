@@ -917,20 +917,39 @@ class Opcode {
         @Override public void execute(List<Operand> oprs) {
             int count = oprs.get(0).getValue().sint();
             IntData srcVal = oprs.get(1).getValue();
-            int src = srcVal.sint();
+            long src = srcVal.slong();
             Operand dest = oprs.get(2);
 
-            IntData shifted;
+            long val;
             if (count >= 0) {
-                shifted = new IntData(src << count, srcVal.dataType());
+                val = count > maxCount() ? 0 : src << count;
             } else {
-                shifted = new IntData(src >> -count, srcVal.dataType());
+                int rcount = count < minCount() ? -minCount() : -count;
+                val = src >> rcount;
             }
+            IntData shifted = new IntData(val, srcVal.dataType());
+
             dest.setValue(shifted);
             context.flagN.set( shifted.isNegValue() );
             context.flagZ.set( shifted.isZeroValue() );
             context.flagV.set( srcVal.isNegValue() != shifted.isNegValue() );
             context.flagC.clear();
+        }
+
+        private int maxCount() {
+            if (ordinal() == ASHL.ordinal()) {
+                return 31;
+            } else {
+                return 63;
+            }
+        }
+
+        private int minCount() {
+            if (ordinal() == ASHL.ordinal()) {
+                return -31;
+            } else {
+                return -63;
+            }
         }
     }
 
@@ -1483,7 +1502,6 @@ class Opcode {
                 int nArgs = context.pop() & 0xff;
                 context.register[SP] += nArgs * 4;
             }
-            //if (VaxInterpreter.debug != 0) --VaxInterpreter.debug;
         }
     }
 

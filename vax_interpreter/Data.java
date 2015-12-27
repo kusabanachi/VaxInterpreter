@@ -13,14 +13,21 @@ class IntData {
         this.type = tp;
     }
 
-    public IntData(int ival, DataType tp) {
-        this(intToBytes(ival), tp);
+    public IntData(int val, DataType tp) {
+        this(intToBytes(val), tp);
     }
 
-    public IntData(int ival) {
-        this(ival, DataType.L);
+    public IntData(int val) {
+        this(val, DataType.L);
     }
 
+    public IntData(long val, DataType tp) {
+        this(longToBytes(val), tp);
+    }
+
+    public IntData(long val) {
+        this(val, DataType.Q);
+    }
 
     public byte[] bytes() {
         return val;
@@ -33,6 +40,10 @@ class IntData {
     public int uint() {
         int mask = ~(int)(0xffffffffL << (type.size << 3));
         return sint() & mask;
+    }
+
+    public long slong() {
+        return bytesToLong(val);
     }
 
     public DataType dataType() {
@@ -132,8 +143,26 @@ class IntData {
         }
     }
 
+    private static long bytesToLong(byte[] val) {
+        ByteBuffer bbuf = ByteBuffer.wrap(val).order(ByteOrder.LITTLE_ENDIAN);
+        switch (val.length) {
+        case 1:
+            return bbuf.get();
+        case 2:
+            return bbuf.getShort();
+        case 4:
+            return bbuf.getInt();
+        default:
+            return bbuf.getLong();
+        }
+    }
+
     private static byte[] intToBytes(int val) {
         return ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(val).array();
+    }
+
+    private static byte[] longToBytes(long val) {
+        return ByteBuffer.allocate(8).order(ByteOrder.LITTLE_ENDIAN).putLong(val).array();
     }
 
     public String hexString() {
