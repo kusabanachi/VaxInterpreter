@@ -6,7 +6,6 @@ import static vax_interpreter.Util.*;
 
 abstract class Operand {
     private static final int PC = 0xf;
-    protected String mnemonic;
     protected int len;
 
     protected final Context context;
@@ -68,7 +67,7 @@ abstract class Operand {
     }
 
     public String mnemonic() {
-        return mnemonic;
+        return "";
     }
 
     public int len() {
@@ -115,8 +114,11 @@ class BranchAddress extends Address {
         IntData offset = context.memory.load(context.register[PC], dataType);
         context.register[PC] += dataType.size;
         this.addr = context.pc() + offset.sint();
-        mnemonic = String.format("0x%x", addr);
-        len = dataType.size;
+        this.len = dataType.size;
+    }
+
+    @Override public String mnemonic() {
+        return String.format("0x%x", addr);
     }
 }
 
@@ -124,9 +126,8 @@ class Literal extends Address {
     protected Literal(Context context, DataType dataType) {
         super(context, dataType);
         this.addr = context.pc();
-        int val = context.readText();
-        mnemonic = String.format("$0x%x", val & 0x3f) + dataType.annotation;
-        len = 1;
+        this.val = context.readText() & 0x3f;
+        this.len = 1;
     }
 
     @Override
@@ -152,16 +153,26 @@ class Literal extends Address {
                                dataType);
         }
     }
+
+    private final int val;
+    @Override public String mnemonic() {
+        return String.format("$0x%x", val) + dataType.annotation;
+    }
 }
 
 class Index extends Address {
     protected Index(Context context, DataType dataType) {
         super(context, dataType);
-        int regNum = context.readText() & 0xf;
-        Address base = (Address)fetchGeneralAddress(context, dataType);
-        this.addr = context.register[regNum] * dataType.size + base.addr;
-        mnemonic = base.mnemonic() + "[" + regStr(regNum) + "]";
-        len = base.len() + 1;
+        this.regNum = context.readText() & 0xf;
+        this.baseAddress = (Address)fetchGeneralAddress(context, dataType);
+        this.addr = context.register[regNum] * dataType.size + baseAddress.addr;
+        this.len = baseAddress.len() + 1;
+    }
+
+    private final int regNum;
+    private final Address baseAddress;
+    @Override public String mnemonic() {
+        return baseAddress.mnemonic() + "[" + regStr(regNum) + "]";
     }
 }
 
@@ -171,8 +182,7 @@ class Register extends Operand {
     protected Register(Context context, DataType dataType) {
         super(context, dataType);
         this.regNum = context.readText() & 0xf;
-        mnemonic = regStr(regNum);
-        len = 1;
+        this.len = 1;
     }
 
     @Override
@@ -184,42 +194,57 @@ class Register extends Operand {
     public void setValue(IntData val) {
         context.setRegisterValue(regNum, val);
     }
+
+    @Override public String mnemonic() {
+        return regStr(regNum);
+    }
 }
 
 class RegisterDeferred extends Address {
     protected RegisterDeferred(Context context, DataType dataType) {
         super(context, dataType);
-        int regNum = context.readText() & 0xf;
+        this.regNum = context.readText() & 0xf;
         this.addr = context.register[regNum];
-        mnemonic = "(" + regStr(regNum) + ")";
-        len = 1;
+        this.len = 1;
+    }
+
+    private final int regNum;
+    @Override public String mnemonic() {
+        return "(" + regStr(regNum) + ")";
     }
 }
 
 class AutoDecrement extends Address {
     protected AutoDecrement(Context context, DataType dataType) {
         super(context, dataType);
-        int regNum = context.readText() & 0xf;
+        this.regNum = context.readText() & 0xf;
         context.register[regNum] -= dataType.size;
         this.addr = context.register[regNum];
-        mnemonic = "-(" + regStr(regNum) + ")";
-        len = 1;
+        this.len = 1;
+    }
+
+    private final int regNum;
+    @Override public String mnemonic() {
+        return "-(" + regStr(regNum) + ")";
     }
 }
 
 class AutoIncrement extends Address {
     protected AutoIncrement(Context context, DataType dataType) {
         super(context, dataType);
-        int regNum = context.readText() & 0xf;
+        this.regNum = context.readText() & 0xf;
         this.addr = context.register[regNum];
         context.register[regNum] += dataType.size;
+        this.len = isPC(regNum) ? 1 + dataType.size : 1;
+    }
+
+    private final int regNum;
+    @Override public String mnemonic() {
         if (isPC(regNum)) {
             IntData imm = context.memory.load(addr, dataType);
-            mnemonic = "$" + imm.hexString() + dataType.annotation;
-            len = 1 + dataType.size;
+            return "$" + imm.hexString() + dataType.annotation;
         } else {
-            mnemonic = "(" + regStr(regNum) + ")+";
-            len = 1;
+            return "(" + regStr(regNum) + ")+";
         }
     }
 }
@@ -227,15 +252,18 @@ class AutoIncrement extends Address {
 class AutoIncrementDeferred extends Address {
     protected AutoIncrementDeferred(Context context, DataType dataType) {
         super(context, dataType);
-        int regNum = context.readText() & 0xf;
+        this.regNum = context.readText() & 0xf;
         this.addr = context.memory.load(context.register[regNum], DataType.L).uint();
         context.register[regNum] += 4;
+        this.len = isPC(regNum) ? 5 : 1;
+    }
+
+    private final int regNum;
+    @Override public String mnemonic() {
         if (isPC(regNum)) {
-            mnemonic = String.format("*0x%x", addr);
-            len = 5;
+            return String.format("*0x%x", addr);
         } else {
-            mnemonic = "@(" + regStr(regNum) + ")+";
-            len = 1;
+            return "@(" + regStr(regNum) + ")+";
         }
     }
 }
@@ -248,27 +276,35 @@ class Displacement extends Address {
         DataType dispType = size == 1 ? DataType.B :
                             size == 2 ? DataType.W :
                             /*      4*/ DataType.L;
-        int disp = context.memory.load(context.register[PC], dispType).sint();
+        this.disp = context.memory.load(context.register[PC], dispType).sint();
         context.register[PC] += size;
-        int regNum = head & 0xf;
+        this.regNum = head & 0xf;
         this.addr = disp + context.register[regNum];
+        this.len = 1 + size;
+    }
+
+    private final int disp;
+    private final int regNum;
+    @Override public String mnemonic() {
         if (isPC(regNum)) {
-            mnemonic = String.format("0x%x", addr);
+            return String.format("0x%x", addr);
         } else {
-            mnemonic = String.format("0x%x(%s)", disp, regStr(regNum));
+            return String.format("0x%x(%s)", disp, regStr(regNum));
         }
-        len = 1 + size;
     }
 }
 
 class DisplacementDeferred extends Address {
     protected DisplacementDeferred(Context context, DataType dataType) {
         super(context, dataType);
-        Address displacement = new Displacement(context, dataType);
+        this.displacement = new Displacement(context, dataType);
         this.addr = context.memory.load(displacement.addr, DataType.L).uint();
-        mnemonic = "*" + displacement.mnemonic;
-        len = displacement.len();
+        this.len = displacement.len();
+    }
+
+    private final Address displacement;
+    @Override public String mnemonic() {
+        return "*" + displacement.mnemonic();
     }
 }
-
 
