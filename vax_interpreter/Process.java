@@ -38,9 +38,6 @@ class Process implements Runnable {
 
             synchronized(Context.class) {
                 Instruction ins = Instruction.fetch(context);
-                if (ins == null || ins.opcode instanceof Nullcode) {
-                    break;
-                }
 
                 if (debugFlag) {
                     printDebug(pc, ins, dump);

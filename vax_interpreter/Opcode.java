@@ -49,6 +49,7 @@ class Opcode {
             Tst.values(),
             Cmp.values(),
             Ext.values(),
+            Insv.values(),
             Jmp.values(),
             Br.values(),
             Bb.values(),
@@ -113,10 +114,6 @@ class Opcode {
     public void execute(List<Operand> oprs, Context c) {
         context = c;
         code.execute(oprs);
-    }
-
-    public boolean isNullcode() {
-        return this instanceof Nullcode;
     }
 
 
@@ -1093,8 +1090,8 @@ class Opcode {
                     int regNum = ((Register)base).regNum;
                     srcVal = ((long)context.register[regNum + 1] << 32) | context.register[regNum];
                 } else {
-                    int addr = ((Address)base).getAddress() + (pos >> 5);
-                    pos = pos & 5;
+                    int addr = ((Address)base).getAddress() + (pos >>> 5);
+                    pos = pos & 31;
                     srcVal =
                         ((long)context.memory.load(addr + 4, DataType.L).uint() << 32) |
                         context.memory.load(addr, DataType.L).uint();
@@ -1115,6 +1112,63 @@ class Opcode {
 
         private boolean isSignExt() {
             return ordinal() == EXTV.ordinal();
+        }
+    }
+
+    enum Insv implements ICode {
+        INSV (0xf0, L,L,B,B);
+
+        private final int bin;
+        private final DataType[] operands;
+
+        private Insv(int bin, DataType... oprs) {
+            this.bin = bin;
+            this.operands = oprs;
+        }
+
+        @Override public int bin() {
+            return bin;
+        }
+
+        @Override public DataType[] operands() {
+            return operands;
+        }
+
+        @Override public String mnemonic() {
+            return name().toLowerCase(Locale.ENGLISH);
+        }
+
+        @Override public void execute(List<Operand> oprs) {
+            int size = oprs.get(2).getValue().uint();
+
+            assert size <= 32 : "Reserved operand fault";
+
+            if (size != 0) {
+                int pos = oprs.get(1).getValue().uint();
+                long srcVal = (long)oprs.get(0).getValue().uint() << pos;
+                Operand base = oprs.get(3);
+                if (base instanceof Register) {
+                    assert (pos & 0xffffffffL) <= 31 : "Reserved operand fault";
+
+                    int regNum = ((Register)base).regNum;
+                    long orgVal =
+                        ((long)context.register[regNum + 1] << 32) |
+                        context.register[regNum];
+                    long mask = (~(0xffffffffffffffffL << size)) << pos;
+                    long insVal = (orgVal & ~mask) | (srcVal & mask);
+                    context.setRegisterValue(regNum, new IntData(insVal, DataType.Q));
+                } else {
+                    int addr = ((Address)base).getAddress() + (pos >>> 5);
+                    pos = pos & 31;
+
+                    long orgVal =
+                        ((long)context.memory.load(addr + 4, DataType.L).uint() << 32) |
+                        context.memory.load(addr, DataType.L).uint();
+                    long mask = (~(0xffffffffffffffffL << size)) << pos;
+                    long insVal = (orgVal & ~mask) | (srcVal & mask);
+                    context.memory.store(addr, new IntData(insVal, DataType.Q));
+                }
+            }
         }
     }
 
@@ -1375,7 +1429,7 @@ class Opcode {
 
 
     enum Call implements ICode {
-        CALLG (0xfa, L,B),
+        CALLG (0xfa, B,B),
         CALLS (0xfb, L,B);
 
         private final int bin;
@@ -2424,84 +2478,53 @@ class Calculator {
     }
 }
 
-/*enum Opcode {
-    HALT  (0x0),               REI   (0x2),      BPT   (0x3),
-    RET   (0x4),              RSB   (0x5),        LDPCTX(0x6),      SVPCTX(0x7),
-    CVTPS (0x8, W,B,W,B),     CVTSP (0x9,W,B,W,B),
-    INDEX (0xa, L,L,L,L,L,L), CRC   (0xb, B,L,W,B),
-    PROBER(0xc, B,W,B),       PROBEW(0xd, B,W,B), INSQUE(0xe, B,B), REMQUE(0xf, B,W),
-
-    BSBB (0x10, BrB),   JSB   (0x16, B),   
-    
-
-    ADDP4 (0x20, W,B,W,B),   ADDP6 (0x21, W,B,W,B,W,B), SUBP4 (0x22, W,B,W,B),     SUBP6 (0x23, W,B,W,B,W,B),
-    CVTPT (0x24, W,B,B,W,B), MULP  (0x25, W,B,W,B,W,B), CVTTP (0x26, W,B,B,W,B),   DIVP  (0x27, W,B,W,B,W,B),
-    SCANC (0x2a, W,B,B,B),     SPANC (0x2b, W,B,B,B),
-    MOVTC (0x2e, W,B,B,B,W,B), MOVTUC(0x2f, W,B,B,B,W,B),
-
-    BSBW  (0x30, BrW),             
-     CMPP3 (0x35, W,B,B),
-    CVTPL (0x36, W,B,L), CMPP4 (0x37, W,B,W,B), MATCHC(0x39, W,B,W,B),
-
-
-
-    MULF2 (0x44, F,F), MULG2 (0x44fd, G,G), MULF3 (0x45, F,F,F),     MULG3 (0x45fd, G,G,G),
-    DIVF2 (0x46, F,F), DIVG2 (0x46fd, G,G), DIVF3 (0x47, F,F,F),     DIVG3 (0x47fd, G,G,G),
-ACBF  (0x4f, F,F,F,BrW), ACBG  (0x4ffd, G,G,G,BrW),
-
-
-           
-    EMODF (0x54, F,B,F,L,F), EMODG (0x54fd, G,W,G,L,G), POLYF (0x55, F,W,B), POLYG (0x55fd, G,W,B),
-          ADAWI (0x58, W,W),
-    INSQHI(0x5c, B,Q),       INSQTI(0x5d, B,Q),         REMQHI(0x5e, Q,L),   REMQTI(0x5f, Q,L),
-
-
-    MULD2 (0x64, D,D), MULH2 (0x64fd, H,H), MULD3 (0x65, D,D,D),     MULH3 (0x65fd, H,H,H),
-    DIVD2 (0x66, D,D), DIVH2 (0x66fd, H,H), DIVD3 (0x67, D,D,D),     DIVH3 (0x67fd, H,H,H),
-          
-            
-         
- ACBD  (0x6f, D,D,D,BrW), ACBH  (0x6ffd, H,H,H,BrW),
-
-
-
+/* Not Implemented
+    HALT (0x0), REI   (0x2),
+    BPT (0x3), RET   (0x4),
+    RSB (0x5), LDPCTX (0x6),
+    SVPCTX (0x7), CVTPS (0x8, W,B,W,B),
+    CVTSP (0x9,W,B,W,B), INDEX (0xa, L,L,L,L,L,L),
+    CRC (0xb, B,L,W,B), PROBER (0xc, B,W,B),
+    PROBEW (0xd, B,W,B), INSQUE (0xe, B,B),
+    REMQUE (0xf, B,W), BSBB (0x10, BrB),
+    JSB (0x16, B),
+    ADDP4 (0x20, W,B,W,B), ADDP6 (0x21, W,B,W,B,W,B),
+    SUBP4 (0x22, W,B,W,B), SUBP6 (0x23, W,B,W,B,W,B),
+    CVTPT (0x24, W,B,B,W,B), MULP (0x25, W,B,W,B,W,B),
+    CVTTP (0x26, W,B,B,W,B), DIVP (0x27, W,B,W,B,W,B),
+    SCANC (0x2a, W,B,B,B), SPANC (0x2b, W,B,B,B),
+    MOVTC (0x2e, W,B,B,B,W,B), MOVTUC (0x2f, W,B,B,B,W,B),
+    BSBW  (0x30, BrW), CMPP3 (0x35, W,B,B),
+    CVTPL (0x36, W,B,L), CMPP4 (0x37, W,B,W,B),
+    MATCHC(0x39, W,B,W,B),
+    MULF2 (0x44, F,F), MULG2 (0x44fd, G,G),
+    MULF3 (0x45, F,F,F), MULG3 (0x45fd, G,G,G),
+    DIVF2 (0x46, F,F), DIVG2 (0x46fd, G,G),
+    DIVF3 (0x47, F,F,F), DIVG3 (0x47fd, G,G,G),
+    ACBF (0x4f, F,F,F,BrW), ACBG (0x4ffd, G,G,G,BrW),
+    EMODF (0x54, F,B,F,L,F), EMODG (0x54fd, G,W,G,L,G),
+    POLYF (0x55, F,W,B), POLYG (0x55fd, G,W,B),
+    ADAWI (0x58, W,W),
+    INSQHI (0x5c, B,Q), INSQTI (0x5d, B,Q),
+    REMQHI (0x5e, Q,L), REMQTI (0x5f, Q,L),
+    MULD2 (0x64, D,D), MULH2 (0x64fd, H,H),
+    MULD3 (0x65, D,D,D), MULH3 (0x65fd, H,H,H),
+    DIVD2 (0x66, D,D), DIVH2 (0x66fd, H,H),
+    DIVD3 (0x67, D,D,D), DIVH3 (0x67fd, H,H,H),
+    ACBD (0x6f, D,D,D,BrW), ACBH (0x6ffd, H,H,H,BrW),
     EMODD (0x74, D,B,D,L,D), EMODH (0x74fd, H,W,H,L,H),
-    POLYD (0x75, D,W,B), POLYH (0x75fd, H,W,B), 
-    EMUL  (0x7a, L,L,L,Q), EDIV  (0x7b, L,Q,L,L),
-
-
-     
-    
-
-
-    
-    ROTL  (0x9c, B,L,L), 
-
-
-    
-    
-
-
-    BISPSW(0xb8, W),   BICPSW(0xb9, W),   POPR  (0xba, W),   PUSHR (0xbb, W),
-       CHME  (0xbd, W),   CHMS  (0xbe, W),   CHMU  (0xbf, W),
-
-
-
-
-
-
-      
-    ADWC  (0xd8, L,L), SBWC  (0xd9, L,L), MTPR  (0xda, L,L), MFPR  (0xdb, L,L),
-    MOVPSL(0xdc, L),   
-
-    FFS   (0xea, L,B,B,L), FFC   (0xeb, L,B,B,L),
-    CMPV  (0xec, L,B,B,L), CMPZV (0xed, L,B,B,L), 
-
-    INSV  (0xf0, L,L,B,B), 
-   ASHP  (0xf8, B,W,B,B,W,B), 
-    CALLG (0xfa, B,B),            XFC   (0xfc),
-    BUGL  (0xfdff, L),     BUGW  (0xfeff, W);
-
-
-}
+    POLYD (0x75, D,W,B), POLYH (0x75fd, H,W,B),
+    EMUL (0x7a, L,L,L,Q), EDIV (0x7b, L,Q,L,L),
+    ROTL  (0x9c, B,L,L),
+    BISPSW (0xb8, W), BICPSW (0xb9, W),
+    POPR (0xba, W), PUSHR (0xbb, W),
+    CHME (0xbd, W), CHMS (0xbe, W),
+    CHMU (0xbf, W),
+    ADWC (0xd8, L,L), SBWC (0xd9, L,L),
+    MTPR (0xda, L,L), MFPR (0xdb, L,L),
+    MOVPSL (0xdc, L),
+    FFS (0xea, L,B,B,L), FFC (0xeb, L,B,B,L),
+    CMPV (0xec, L,B,B,L), CMPZV (0xed, L,B,B,L),
+    ASHP (0xf8, B,W,B,B,W,B), XFC (0xfc),
+    BUGL (0xfdff, L), BUGW (0xfeff, W);
 */
