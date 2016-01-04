@@ -5,6 +5,11 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.*;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.attribute.*;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static vax_interpreter.Util.*;
 import static vax_interpreter.Kernel.Constant.*;
 
@@ -58,6 +63,7 @@ class Kernel {
         public static final int EBADF = 9;
         public static final int ECHILD = 10;
         public static final int EACCES = 13;
+        public static final int EFAULT = 14;
         public static final int EBUSY = 16;
         public static final int EEXIST = 17;
         public static final int EINVAL = 22;
@@ -287,7 +293,41 @@ class Kernel {
         },
         chown (16, 3),
         sbreak (17, 1),
-        stat (18, 2),
+        stat (18, 2) {
+            @Override public void call(List<Integer> args, Context context) {
+                Path filePath = Paths.get(getFileName(args.get(0), context));
+                if (!Files.exists(filePath, NOFOLLOW_LINKS)) {
+                    context.u.u_error = ENOENT;
+                    return;
+                }
+
+                BasicFileAttributes attrs;
+                try {
+                    attrs = Files.readAttributes(filePath, BasicFileAttributes.class, NOFOLLOW_LINKS);
+                } catch (IOException e) {
+                    context.u.u_error = EFAULT;
+                    return;
+                }
+
+                final int StatSize = 32;
+                ByteBuffer statBuf = ByteBuffer.allocate(StatSize).order(ByteOrder.LITTLE_ENDIAN);
+                statBuf.putShort((short)0);    // st_dev
+                statBuf.putShort((short)0);    // st_ino
+                statBuf.putShort((short)0);    // st_mode
+                statBuf.putShort((short)0);    // st_nlink
+                statBuf.putShort((short)0);    // st_uid
+                statBuf.putShort((short)0);    // st_gid
+                statBuf.putShort((short)0);    // st_rdev
+                statBuf.putShort((short)0);    // padding
+                statBuf.putInt((int)attrs.size());    // st_size
+                statBuf.putInt((int)attrs.lastAccessTime().to(SECONDS));    // st_atime
+                statBuf.putInt((int)attrs.lastModifiedTime().to(SECONDS));    // st_mtime
+                statBuf.putInt(0);    // st_ctime
+
+                int addr = args.get(1);
+                context.memory.storeBytes(addr, statBuf.array(), StatSize);
+            }
+        },
         seek (19, 3) {
             @Override public void call(List<Integer> args, Context context) {
                 int fd = args.get(0);
