@@ -3,10 +3,13 @@ package vax_interpreter;
 import java.util.*;
 import java.nio.channels.*;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
 import java.io.File;
 import java.io.RandomAccessFile;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.FileNotFoundException;
 import static vax_interpreter.Kernel.Constant.*;
@@ -21,9 +24,9 @@ class FileItem {
     public static final FileItem stderr = new FileItem(Channels.newChannel(System.err), FWRITE);
 
     private FileItem(Channel ch, int mode) {
-        chan = ch;
-        f_count = 1;
-        f_flag = (byte)(mode & (FREAD | FWRITE));
+        this.chan = ch;
+        this.f_flag = (byte)(mode & (FREAD | FWRITE));
+        this.f_count = 1;
     }
 
     public static FileItem open(String fname, int mode) throws FileItemException {
@@ -31,7 +34,14 @@ class FileItem {
         if (!file.exists()) {
             throw new FileItemException(ENOENT);
         }
+        if (file.isDirectory()) {
+            return openDir(file, mode);
+        } else {
+            return openFile(file, mode);
+        }
+    }
 
+    private static FileItem openFile(File file, int mode) throws FileItemException {
         if ((mode & FREAD) != 0) {
             if (!file.canRead()) {
                 throw new FileItemException(EACCES);
@@ -44,7 +54,7 @@ class FileItem {
         }
 
         try {
-            Channel ch = open(file, mode);
+            Channel ch = openFileCh(file, mode);
             return new FileItem(ch, mode);
         } catch (FileNotFoundException e) {
             throw new FileItemException(ENOENT);
@@ -53,7 +63,7 @@ class FileItem {
         }
     }
 
-    private static Channel open(File file, int mode) throws FileNotFoundException, IOException {
+    private static Channel openFileCh(File file, int mode) throws FileNotFoundException, IOException {
         FileChannel ch = null;
         if ((mode & FREAD) != 0 && (mode & FWRITE) != 0) {
             ch = new RandomAccessFile(file, "rw").getChannel();
@@ -64,6 +74,23 @@ class FileItem {
             ch.position(0);
         }
         return ch;
+    }
+
+    private static FileItem openDir(File dir, int mode) throws FileItemException {
+        if ((mode & FWRITE) != 0) {
+            throw new RuntimeException("Writing dirctory file is not implemented.");
+        }
+
+        final int DirEntrySize = 16;
+        String[] flist = dir.list();
+        ByteBuffer buf = ByteBuffer.allocate(DirEntrySize * flist.length).order(ByteOrder.LITTLE_ENDIAN);
+        for (String fname : flist) {
+            byte[] fnameb = fname.getBytes(StandardCharsets.US_ASCII);
+            buf.putShort((short)0);                // d_ino
+            buf.put(Arrays.copyOf(fnameb, 14));    // d_name[14]
+        }
+        Channel ch = Channels.newChannel(new ByteArrayInputStream(buf.array()));
+        return new FileItem(ch, mode);
     }
 
     public static FileItem create(String fname, int fmode) throws FileItemException {
@@ -150,14 +177,14 @@ class FileItem {
     }
 
     public int seek(int offset, int sbase) throws FileItemException {
-        FileChannel fch = (FileChannel)chan;
+        SeekableByteChannel sch = (SeekableByteChannel)chan;
         try {
             if (sbase == 1) {
-                offset += fch.position();
+                offset += sch.position();
             } else if (sbase == 2) {
-                offset += fch.size();
+                offset += sch.size();
             }
-            fch.position(offset);
+            sch.position(offset);
             return offset;
         } catch (IOException e) {
             throw new FileItemException(ESPIPE);
