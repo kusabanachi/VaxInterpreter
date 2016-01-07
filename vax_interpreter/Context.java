@@ -176,6 +176,9 @@ class Context {
                 return false;
             }
 
+            // clear bss and stack
+            Arrays.fill(mem, tsegSize + dsize, MEM_SIZE, (byte)0);
+
             textSize = tsize;
             return true;
         }
