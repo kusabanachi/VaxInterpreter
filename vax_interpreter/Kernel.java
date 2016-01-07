@@ -150,7 +150,7 @@ class Kernel {
 
                 for (Proc q : procSet) {
                     if (p.p_ppid == q.p_pid) {
-                        Context.class.notify();
+                        Context.class.notifyAll();
                     }
                 }
             }
