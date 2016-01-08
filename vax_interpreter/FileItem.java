@@ -9,7 +9,6 @@ import java.io.File;
 import java.io.RandomAccessFile;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.FileNotFoundException;
 import static vax_interpreter.Kernel.Constant.*;
@@ -89,8 +88,7 @@ class FileItem {
             buf.putShort((short)0);                // d_ino
             buf.put(Arrays.copyOf(fnameb, 14));    // d_name[14]
         }
-        Channel ch = Channels.newChannel(new ByteArrayInputStream(buf.array()));
-        return new FileItem(ch, mode);
+        return new FileItem(new DirChannel(buf), mode);
     }
 
     public static FileItem create(String fname, int fmode) throws FileItemException {
@@ -197,6 +195,71 @@ class FileItem {
 
     public void addReference() {
         ++f_count;
+    }
+}
+
+class DirChannel implements SeekableByteChannel {
+    private final ByteBuffer buf;
+    private boolean isOpen;
+
+    public DirChannel(ByteBuffer buf) {
+        this.buf = buf;
+        this.isOpen = true;
+    }
+
+    @Override public long position() throws IOException {
+        if (!isOpen) {
+            throw new ClosedChannelException();
+        }
+        return buf.position();
+    }
+
+    @Override public SeekableByteChannel position(long newPosition) throws IOException {
+        if (!isOpen) {
+            throw new ClosedChannelException();
+        }
+        buf.position((int)newPosition);
+        return this;
+    }
+
+    @Override public int read(ByteBuffer dst) throws IOException {
+        if (!isOpen) {
+            throw new ClosedChannelException();
+        }
+        if (buf.hasRemaining()) {
+            byte[] bytes = new byte[buf.remaining()];
+            buf.get(bytes);
+            dst.put(bytes);
+            return bytes.length;
+        } else {
+            return -1;
+        }
+    }
+
+    @Override public long size() throws IOException {
+        if (!isOpen) {
+            throw new ClosedChannelException();
+        }
+        return buf.capacity();
+    }
+
+    @Override public SeekableByteChannel truncate(long size) {
+        throw new NonWritableChannelException();
+    }
+
+    @Override public int write(ByteBuffer src) {
+        throw new NonWritableChannelException();
+    }
+
+    @Override public void close() throws IOException {
+        if (!isOpen) {
+            throw new ClosedChannelException();
+        }
+        isOpen = false;
+    }
+
+    @Override public boolean isOpen() {
+        return isOpen;
     }
 }
 
