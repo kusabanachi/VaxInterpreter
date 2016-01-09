@@ -231,7 +231,7 @@ class DirChannel implements SeekableByteChannel {
             throw new ClosedChannelException();
         }
         if (buf.hasRemaining()) {
-            byte[] bytes = new byte[buf.remaining()];
+            byte[] bytes = new byte[Math.min(buf.remaining(), dst.remaining())];
             buf.get(bytes);
             dst.put(bytes);
             return bytes.length;
