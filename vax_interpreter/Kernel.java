@@ -87,6 +87,10 @@ class Kernel {
         public static final int FREAD = 1;
         public static final int FWRITE = 2;
 
+        /* inode modes */
+        public static final int IFDIR = 0x4000;    /* directory */
+        public static final int IFREG = 0x8000;    /* regular */
+
         /* proc stat codes */
         public static final int SRUN = 3;    /* running */
         public static final int SZOMB = 5;   /* intermediate state in process termination */
@@ -317,18 +321,21 @@ class Kernel {
 
                 final int StatSize = 32;
                 ByteBuffer statBuf = ByteBuffer.allocate(StatSize).order(ByteOrder.LITTLE_ENDIAN);
-                statBuf.putShort((short)0);    // st_dev
-                statBuf.putShort((short)0);    // st_ino
-                statBuf.putShort((short)0);    // st_mode
-                statBuf.putShort((short)0);    // st_nlink
-                statBuf.putShort((short)0);    // st_uid
-                statBuf.putShort((short)0);    // st_gid
-                statBuf.putShort((short)0);    // st_rdev
-                statBuf.putShort((short)0);    // padding
-                statBuf.putInt((int)attrs.size());    // st_size
+                statBuf.putShort((short)0);                                 // st_dev
+                statBuf.putShort((short)0);                                 // st_ino
+                short st_mode = (short)(attrs.isRegularFile() ? IFREG :
+                                        attrs.isDirectory()   ? IFDIR :
+                                        0);
+                statBuf.putShort(st_mode);                                  // st_mode
+                statBuf.putShort((short)0);                                 // st_nlink
+                statBuf.putShort((short)0);                                 // st_uid
+                statBuf.putShort((short)0);                                 // st_gid
+                statBuf.putShort((short)0);                                 // st_rdev
+                statBuf.putShort((short)0);                                 // padding
+                statBuf.putInt((int)attrs.size());                          // st_size
                 statBuf.putInt((int)attrs.lastAccessTime().to(SECONDS));    // st_atime
-                statBuf.putInt((int)attrs.lastModifiedTime().to(SECONDS));    // st_mtime
-                statBuf.putInt(0);    // st_ctime
+                statBuf.putInt((int)attrs.lastModifiedTime().to(SECONDS));  // st_mtime
+                statBuf.putInt(0);                                          // st_ctime
 
                 int addr = args.get(1);
                 context.memory.storeBytes(addr, statBuf.array(), StatSize);
