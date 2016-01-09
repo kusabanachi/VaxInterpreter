@@ -8,12 +8,23 @@ public class VaxInterpreter {
     public static void main(String[] args) {
         boolean debugFlag = false;
         List<String> processArgs;
-        if (args[0].equals("-d")) {
-            debugFlag = true;
-            processArgs = Arrays.asList(Arrays.copyOfRange(args, 1, args.length));
-        } else {
-            processArgs = Arrays.asList(args);
+
+        int argi;
+        for (argi = 0; argi < args.length; argi++) {
+            if (args[argi].equals("-d")) {
+                debugFlag = true;
+            } else if (args[argi].equals("-rp")) {
+                if (argi + 1 > args.length - 1) {
+                    throw new IllegalArgumentException(args[argi]);
+                }
+                ++argi;
+                Kernel.rootPath = args[argi];
+            } else {
+                break;
+            }
         }
+
+        processArgs = Arrays.asList(Arrays.copyOfRange(args, argi, args.length));
         if (processArgs.isEmpty()) {
             throw new IllegalArgumentException("No input file.");
         }

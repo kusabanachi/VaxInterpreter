@@ -15,6 +15,12 @@ import static vax_interpreter.Kernel.Constant.*;
 
 class Kernel {
 
+    static String rootPath;
+    static {
+        String classPath = Thread.currentThread().getContextClassLoader().getResource("").getPath();
+        rootPath = Paths.get(classPath, "root").toString();
+    }
+
     public static void syscall(int code, Context context) {
         int params = context.register[AP];
         params += NBPW;
@@ -552,7 +558,7 @@ class Kernel {
             byte[] strBytes = context.memory.loadStringBytes(addr);
             String fname = new String(strBytes, 0, strBytes.length - 1, StandardCharsets.US_ASCII);
             if (fname.startsWith("/")) {
-                fname = Paths.get("./root", fname).toString();
+                fname = Paths.get(rootPath, fname).toString();
             }
             return fname;
         }
