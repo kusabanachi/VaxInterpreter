@@ -79,16 +79,7 @@ class FileItem {
         if ((mode & FWRITE) != 0) {
             throw new RuntimeException("Writing dirctory file is not implemented.");
         }
-
-        final int DirEntrySize = 16;
-        String[] flist = dir.list();
-        ByteBuffer buf = ByteBuffer.allocate(DirEntrySize * flist.length).order(ByteOrder.LITTLE_ENDIAN);
-        for (String fname : flist) {
-            byte[] fnameb = fname.getBytes(StandardCharsets.US_ASCII);
-            buf.putShort((short)0);                // d_ino
-            buf.put(Arrays.copyOf(fnameb, 14));    // d_name[14]
-        }
-        return new FileItem(new DirChannel(buf), mode);
+        return new FileItem(new DirChannel(dir), mode);
     }
 
     public static FileItem create(String fname, int fmode) throws FileItemException {
@@ -202,7 +193,20 @@ class DirChannel implements SeekableByteChannel {
     private final ByteBuffer buf;
     private boolean isOpen;
 
-    public DirChannel(ByteBuffer buf) {
+    public DirChannel(File dir) {
+        final int DirEntrySize = 16;
+
+        List<String> flist = new ArrayList<>(Arrays.asList(".", ".."));
+        flist.addAll(Arrays.asList(dir.list()));
+
+        ByteBuffer buf = ByteBuffer.allocate(DirEntrySize * flist.size()).order(ByteOrder.LITTLE_ENDIAN);
+        for (String fname : flist) {
+            byte[] fnameb = fname.getBytes(StandardCharsets.US_ASCII);
+            buf.putShort((short)0xffff);           // d_ino(dummy)
+            buf.put(Arrays.copyOf(fnameb, 14));    // d_name[14]
+        }
+        buf.flip();
+
         this.buf = buf;
         this.isOpen = true;
     }
