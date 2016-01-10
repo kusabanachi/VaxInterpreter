@@ -245,7 +245,7 @@ class Kernel {
         },
         creat (8, 2) {
             @Override public void call(List<Integer> args, Context context) {
-                String fname = getFileName(args.get(0), context, NOCHANGE_BLANK);
+                String fname = getFileName(args.get(0), context, FileNameOption.NOCHANGE_BLANK);
                 if (fname.isEmpty()) {
                     context.u.u_error = ENOENT;
                     return;
@@ -262,7 +262,7 @@ class Kernel {
             @Override public void call(List<Integer> args, Context context) {
                 Path target = Paths.get(getFileName(args.get(0), context));
 
-                String linkname = getFileName(args.get(1), context, NOCHANGE_BLANK);
+                String linkname = getFileName(args.get(1), context, FileNameOption.NOCHANGE_BLANK);
                 if (linkname.isEmpty()) {
                     context.u.u_error = ENOENT;
                     return;
@@ -282,7 +282,7 @@ class Kernel {
         },
         unlink (10, 1) {
             @Override public void call(List<Integer> args, Context context) {
-                String fname = getFileName(args.get(0), context, NOCHANGE_BLANK);
+                String fname = getFileName(args.get(0), context, FileNameOption.NOCHANGE_BLANK);
                 File file = new File(fname);
                 if (!file.exists() || fname.isEmpty()) {
                     context.u.u_error = ENOENT;
@@ -461,7 +461,8 @@ class Kernel {
         mpxchan (56, 4),
         exece (59, 3) {
             @Override public void call(List<Integer> args, Context context) {
-                File file = new File(getFileName(args.get(0), context));
+                String fname = getFileName(args.get(0), context);
+                File file = new File(fname);
                 if (!file.exists()) {
                     context.u.u_error = ENOENT;
                     return;
@@ -594,7 +595,7 @@ class Kernel {
             if (fname.startsWith("/")) {
                 fname = Paths.get(rootPath, fname).toString();
             }
-            if (fname.isEmpty() && !Arrays.asList(option).contains(NOCHANGE_BLANK)) {
+            if (fname.isEmpty() && !Arrays.asList(option).contains(FileNameOption.NOCHANGE_BLANK)) {
                 fname = ".";
             }
 
