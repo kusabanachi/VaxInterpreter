@@ -449,7 +449,7 @@ class Kernel {
                     context.u.u_error = ENOENT;
                     return;
                 }
-                if (!file.canExecute()) {
+                if (!file.canExecute() || !file.isFile()) {
                     context.u.u_error = EACCES;
                     return;
                 }
