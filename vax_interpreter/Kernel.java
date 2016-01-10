@@ -410,7 +410,24 @@ class Kernel {
         ftime (35, 1),
         sync (36, 0),
         kill (37, 2),
-        dup (41, 2),
+        dup (41, 2) {
+            @Override public void call(List<Integer> args, Context context) {
+                int fd1 = args.get(0);
+                int fd2;
+                int m = fd1 & ~0x3f;
+                fd1 &= 0x3f;
+
+                if ((m & 0x40) == 0) {
+                    fd2 = context.u.fileDup(fd1);
+                } else {
+                    fd2 = args.get(1);
+                    context.u.fileDup(fd1, fd2);
+                }
+                if (context.u.u_error == 0) {
+                    context.u.u_r.r_val1 = fd2;
+                }
+            }
+        },
         pipe (42, 0),
         times (43, 1),
         prof (44, 4),

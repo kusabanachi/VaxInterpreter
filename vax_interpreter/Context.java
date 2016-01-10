@@ -398,6 +398,51 @@ class Context {
             return false;
         }
 
+        public int fileDup(int fd1) {
+            FileItem f1 = getf(fd1);
+            if (f1 == null) {
+                u_error = EBADF;
+                return -1;
+            }
+
+            int fd2 = ufalloc();
+            if (fd2 < 0) {
+                u_error = EMFILE;
+                return -1;
+            }
+
+            if (fd1 != fd2) {
+                fileDuplicate(f1, fd2);
+            }
+
+            return fd2;
+        }
+
+        public void fileDup(int fd1, int fd2) {
+            FileItem f1 = getf(fd1);
+            if (f1 == null) {
+                u_error = EBADF;
+                return;
+            }
+
+            if (fd2 < 0 || fd2 >= NOFILE) {
+                u_error = EBADF;
+                return;
+            }
+
+            if (fd1 != fd2) {
+                fileDuplicate(f1, fd2);
+            }
+        }
+
+        public void fileDuplicate(FileItem f1, int fd2) {
+            if (u_ofile[fd2] != null) {
+                fileClose(fd2);
+            }
+            u_ofile[fd2] = f1;
+            f1.addReference();
+        }
+
         private int ufalloc() {
             int fd;
             for (fd = 0; fd < NOFILE; fd++) {
