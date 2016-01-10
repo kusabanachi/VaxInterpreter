@@ -245,7 +245,12 @@ class Kernel {
         },
         creat (8, 2) {
             @Override public void call(List<Integer> args, Context context) {
-                String fname = getFileName(args.get(0), context);
+                String fname = getFileName(args.get(0), context, NOCHANGE_BLANK);
+                if (fname.isEmpty()) {
+                    context.u.u_error = ENOENT;
+                    return;
+                }
+
                 int fmode = args.get(1);
                 int fd = context.u.fileCreate(fname, fmode);
                 if (context.u.u_error == 0) {
@@ -256,7 +261,13 @@ class Kernel {
         link (9, 2) {
             @Override public void call(List<Integer> args, Context context) {
                 Path target = Paths.get(getFileName(args.get(0), context));
-                Path link = Paths.get(getFileName(args.get(1), context));
+
+                String linkname = getFileName(args.get(1), context, NOCHANGE_BLANK);
+                if (linkname.isEmpty()) {
+                    context.u.u_error = ENOENT;
+                    return;
+                }
+                Path link = Paths.get(linkname);
 
                 try {
                     Files.createLink(link, target);
@@ -271,9 +282,9 @@ class Kernel {
         },
         unlink (10, 1) {
             @Override public void call(List<Integer> args, Context context) {
-                String fname = getFileName(args.get(0), context);
+                String fname = getFileName(args.get(0), context, NOCHANGE_BLANK);
                 File file = new File(fname);
-                if (!file.exists()) {
+                if (!file.exists() || fname.isEmpty()) {
                     context.u.u_error = ENOENT;
                     return;
                 }
@@ -288,8 +299,7 @@ class Kernel {
         mknod (14, 3),
         chmod (15, 2) {
             @Override public void call(List<Integer> args, Context context) {
-                String fname = getFileName(args.get(0), context);
-                File file = new File(fname);
+                File file = new File(getFileName(args.get(0), context));
                 if (!file.exists()) {
                     context.u.u_error = ENOENT;
                     return;
@@ -372,8 +382,7 @@ class Kernel {
         gtty (32, 2),
         access (33, 2) {
             @Override public void call(List<Integer> args, Context context) {
-                String fname = getFileName(args.get(0), context);
-                File file = new File(fname);
+                File file = new File(getFileName(args.get(0), context));
                 if (!file.exists()) {
                     context.u.u_error = ENOENT;
                     return;
@@ -435,8 +444,7 @@ class Kernel {
         mpxchan (56, 4),
         exece (59, 3) {
             @Override public void call(List<Integer> args, Context context) {
-                String fname = getFileName(args.get(0), context);
-                File file = new File(fname);
+                File file = new File(getFileName(args.get(0), context));
                 if (!file.exists()) {
                     context.u.u_error = ENOENT;
                     return;
@@ -560,13 +568,19 @@ class Kernel {
 
         public void call(List<Integer> args, Context context) {}
 
-
-        private static String getFileName(int addr, Context context) {
+        private enum FileNameOption {
+            NOCHANGE_BLANK;
+        }
+        private static String getFileName(int addr, Context context, FileNameOption... option) {
             byte[] strBytes = context.memory.loadStringBytes(addr);
             String fname = new String(strBytes, 0, strBytes.length - 1, StandardCharsets.US_ASCII);
             if (fname.startsWith("/")) {
                 fname = Paths.get(rootPath, fname).toString();
             }
+            if (fname.isEmpty() && !Arrays.asList(option).contains(NOCHANGE_BLANK)) {
+                fname = ".";
+            }
+
             return fname;
         }
 
