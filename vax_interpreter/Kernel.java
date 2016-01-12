@@ -72,6 +72,7 @@ class Kernel {
         public static final int EFAULT = 14;
         public static final int EBUSY = 16;
         public static final int EEXIST = 17;
+        public static final int EISDIR = 21;
         public static final int EINVAL = 22;
         public static final int ENFILE = 23;
         public static final int EMFILE = 24;

@@ -76,9 +76,15 @@ class FileItem {
     }
 
     private static FileItem openDir(File dir, int mode) throws FileItemException {
-        if ((mode & FWRITE) != 0) {
-            throw new RuntimeException("Writing dirctory file is not implemented.");
+        if ((mode & FREAD) != 0) {
+            if (!dir.canRead()) {
+                throw new FileItemException(EACCES);
+            }
         }
+        if ((mode & FWRITE) != 0) {
+            throw new FileItemException(EISDIR);
+        }
+
         return new FileItem(new DirChannel(dir), mode);
     }
 
