@@ -195,27 +195,40 @@ class Context {
             return true;
         }
 
-        public IntData load(int addr, DataType type) {
+        public IntData load(int rawAddr, DataType type) {
+            int addr = getMemAddress(rawAddr);
             return new IntData(Arrays.copyOfRange(mem, addr, addr + type.size),
                                type);
         }
 
-        public void store(int addr, IntData val) {
+        public void store(int rawAddr, IntData val) {
+            int addr = getMemAddress(rawAddr);
             System.arraycopy(val.bytes(), 0, mem, addr, val.size());
         }
 
-        public byte[] loadBytes(int addr, int size) {
+        public byte[] loadBytes(int rawAddr, int size) {
+            int addr = getMemAddress(rawAddr);
             return Arrays.copyOfRange(mem, addr, addr + size);
         }
 
-        public void storeBytes(int addr, byte[] val, int size) {
+        public void storeBytes(int rawAddr, byte[] val, int size) {
+            int addr = getMemAddress(rawAddr);
             System.arraycopy(val, 0, mem, addr, size);
         }
 
-        public byte[] loadStringBytes(int addr) {
+        public byte[] loadStringBytes(int rawAddr) {
+            int addr = getMemAddress(rawAddr);
             int i = addr;
             while (mem[i++] != 0) {}
             return Arrays.copyOfRange(mem, addr, i);
+        }
+
+        private int getMemAddress(int addr) {
+            if (addr >= 0x7fffff00) {
+                return MEM_SIZE - (int)(0x80000000L - addr);
+            } else {
+                return addr;
+            }
         }
     }
 
