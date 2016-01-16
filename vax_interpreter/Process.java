@@ -74,7 +74,11 @@ class Process implements Runnable {
         for (Operand opr : ins.operands) {
             if (opr instanceof Address) {
                 Address adr = (Address)opr;
-                sb.append(String.format("[%02x]%02x", adr.getAddress(), adr.getValue().uint()));
+                try {
+                    sb.append(String.format("[%02x]%02x", adr.getAddress(), adr.getValue().uint()));
+                } catch (ArrayIndexOutOfBoundsException e) {
+                    System.err.printf("\n  Out of memory: %x\n", adr.getAddress());
+                }
             }
         }
 
