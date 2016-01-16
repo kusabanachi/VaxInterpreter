@@ -11,18 +11,20 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.FileNotFoundException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import static vax_interpreter.Kernel.Constant.*;
 
 class FileItem {
-    private final Channel chan;
+    private final SeekableByteChannel chan;
     private final byte f_flag;
     private byte f_count;
 
-    public static final FileItem stdin = new FileItem(Channels.newChannel(System.in), FREAD);
-    public static final FileItem stdout = new FileItem(Channels.newChannel(System.out), FWRITE);
-    public static final FileItem stderr = new FileItem(Channels.newChannel(System.err), FWRITE);
+    public static final FileItem stdin = new FileItem(new ConsoleChannel(System.in), FREAD);
+    public static final FileItem stdout = new FileItem(new ConsoleChannel(System.out), FWRITE);
+    public static final FileItem stderr = new FileItem(new ConsoleChannel(System.err), FWRITE);
 
-    private FileItem(Channel ch, int mode) {
+    private FileItem(SeekableByteChannel ch, int mode) {
         this.chan = ch;
         this.f_flag = (byte)(mode & (FREAD | FWRITE));
         this.f_count = 1;
@@ -53,7 +55,7 @@ class FileItem {
         }
 
         try {
-            Channel ch = openFileCh(file, mode);
+            FileChannel ch = openFileCh(file, mode);
             return new FileItem(ch, mode);
         } catch (FileNotFoundException e) {
             throw new FileItemException(ENOENT);
@@ -62,7 +64,7 @@ class FileItem {
         }
     }
 
-    private static Channel openFileCh(File file, int mode) throws FileNotFoundException, IOException {
+    private static FileChannel openFileCh(File file, int mode) throws FileNotFoundException, IOException {
         FileChannel ch = null;
         if ((mode & FREAD) != 0 && (mode & FWRITE) != 0) {
             ch = new RandomAccessFile(file, "rw").getChannel();
@@ -109,7 +111,7 @@ class FileItem {
 
         FileItem fItem;
         try {
-            Channel ch = new FileOutputStream(file).getChannel();
+            FileChannel ch = new FileOutputStream(file).getChannel();
             fItem = new FileItem(ch, FWRITE);
         } catch (FileNotFoundException e) {
             throw new FileItemException(ENOENT);
@@ -172,14 +174,13 @@ class FileItem {
     }
 
     public int seek(int offset, int sbase) throws FileItemException {
-        SeekableByteChannel sch = (SeekableByteChannel)chan;
         try {
             if (sbase == 1) {
-                offset += sch.position();
+                offset += chan.position();
             } else if (sbase == 2) {
-                offset += sch.size();
+                offset += chan.size();
             }
-            sch.position(offset);
+            chan.position(offset);
             return offset;
         } catch (IOException e) {
             throw new FileItemException(ESPIPE);
@@ -270,6 +271,52 @@ class DirChannel implements SeekableByteChannel {
 
     @Override public boolean isOpen() {
         return isOpen;
+    }
+}
+
+class ConsoleChannel implements SeekableByteChannel {
+    private final Channel chan;
+    private long position;
+
+    public ConsoleChannel(InputStream in) {
+        this.chan = Channels.newChannel(in);
+    }
+
+    public ConsoleChannel(OutputStream out) {
+        this.chan = Channels.newChannel(out);
+    }
+
+    @Override public long position() throws IOException {
+        return position;
+    }
+
+    @Override public SeekableByteChannel position(long newPosition) throws IOException {
+        position = newPosition;
+        return this;
+    }
+
+    @Override public int read(ByteBuffer dst) throws IOException {
+        return ((ReadableByteChannel)chan).read(dst);
+    }
+
+    @Override public long size() throws IOException {
+        return 0;
+    }
+
+    @Override public SeekableByteChannel truncate(long size) throws IOException {
+        throw new IOException();
+    }
+
+    @Override public int write(ByteBuffer src) throws IOException {
+        return ((WritableByteChannel)chan).write(src);
+    }
+
+    @Override public void close() throws IOException {
+        chan.close();
+    }
+
+    @Override public boolean isOpen() {
+        return chan.isOpen();
     }
 }
 
