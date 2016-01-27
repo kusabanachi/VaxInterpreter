@@ -91,16 +91,14 @@ class FileItem {
     }
 
     public static FileItem create(String fname, int fmode) throws FileItemException {
-        boolean isCreatedNewFile = false;
+        boolean created = false;
 
         File file = new File(fname);
         if (!file.exists()) {
             try {
-                isCreatedNewFile = file.createNewFile();
-            } catch (IOException e) {
-                isCreatedNewFile = false;
-            }
-            if (!isCreatedNewFile) {
+                created = file.createNewFile();
+            } catch (IOException e) {}
+            if (!created) {
                 throw new FileItemException(ENFILE);
             }
         } else {
@@ -119,10 +117,8 @@ class FileItem {
 
         // The file mode is set at last to succeed FileOutputStream constructer.
         // If file mode is read-only, it will be failed.
-        if (isCreatedNewFile) {
-            if (!Kernel.Sysent.setFileMode(file, fmode)) {
-                throw new RuntimeException();
-            }
+        if (created) {
+            Kernel.Sysent.setFileMode(file, fmode);
         }
         return fItem;
     }
