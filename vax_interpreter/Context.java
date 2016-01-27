@@ -263,6 +263,7 @@ class Context {
         public Proc u_procp;
         public u_r u_r = new u_r();
         public int[] u_signal = new int[NSIG];
+        public short u_cmask = CMASK;
 
         User() {
             u_ofile[0] = FileItem.stdin;
@@ -282,6 +283,7 @@ class Context {
             u_procp = Proc.newproc(srcUser.u_procp);
             u_r = new u_r(srcUser.u_r);
             System.arraycopy(srcUser.u_signal, 0, u_signal, 0, u_signal.length);
+            u_cmask = srcUser.u_cmask;
         }
 
         class u_r {
@@ -330,7 +332,7 @@ class Context {
         public int fileCreate(String fname, int fmode) {
             FileItem f;
             try {
-                f = FileItem.create(fname, fmode);
+                f = FileItem.create(fname, fmode & ~u_cmask);
             } catch (FileItemException e) {
                 u_error = e.error;
                 return -1;
