@@ -373,7 +373,12 @@ class Kernel {
         mount (21, 3),
         umount (22, 1),
         setuid (23, 1),
-        getuid (24, 0),
+        getuid (24, 0) {
+            @Override public void call(List<Integer> args, Context context) {
+                context.u.u_r.r_val1 = context.u.u_ruid;
+                context.u.u_r.r_val2 = context.u.u_uid;
+            }
+        },
         stime (25, 1),
         ptrace (26, 4),
         alarm (27, 1),

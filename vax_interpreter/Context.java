@@ -259,6 +259,8 @@ class Context {
 
     class User {
         public int u_error;
+        public short u_uid;
+        public short u_ruid;
         public FileItem u_ofile[] = new FileItem[NOFILE];
         public Proc u_procp;
         public u_r u_r = new u_r();
@@ -270,10 +272,13 @@ class Context {
             u_ofile[1] = FileItem.stdout;
             u_ofile[2] = FileItem.stderr;
             u_procp = Proc.newproc();
+            u_uid = u_ruid = UserAccounts.getLoginAccount();
         }
 
         User(User srcUser) {
             u_error = srcUser.u_error;
+            u_uid = srcUser.u_uid;
+            u_ruid = srcUser.u_ruid;
             for (int i = 0; i < NOFILE; i++) {
                 u_ofile[i] = srcUser.u_ofile[i];
                 if (u_ofile[i] != null) {
