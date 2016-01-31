@@ -12,15 +12,19 @@ import java.nio.file.attribute.PosixFileAttributeView;
 import java.nio.charset.StandardCharsets;
 import java.io.IOException;
 
-class UserAccounts {
-    private static class Account {
-        String name;
-        short gid;
-        Account(String name, short gid) {
-            this.name = name;
-            this.gid = gid;
-        }
+class Account {
+    String name;
+    short uid;
+    short gid;
+    Account(String name, short uid, short gid) {
+        this.name = name;
+        this.uid = uid;
+        this.gid = gid;
     }
+}
+
+class UserAccounts {
+    public static final short NO_GID = -1;
 
     private final static HashMap<Short, Account> accounts = new HashMap<>();
     static {
@@ -36,13 +40,13 @@ class UserAccounts {
                     String name = pwEnt[0];
                     short uid = Short.parseShort(pwEnt[2]);
                     short gid = Short.parseShort(pwEnt[3]);
-                    accounts.put(uid, new Account(name, gid));
+                    accounts.put(uid, new Account(name, uid, gid));
                 }
             }
         } catch (IOException e) {}
     }
 
-    public static short getLoginAccount() {
+    public static Account getLoginAccount() {
         UserPrincipalLookupService lookupService = FileSystems.getDefault().getUserPrincipalLookupService();
         try {
             String userName = System.getProperty("user.name");
@@ -51,30 +55,34 @@ class UserAccounts {
 
             Account acc = accounts.get(uid);
             if (acc == null) {
-                registerLoginAccount();
+                return registerLoginAccount();
             }
-            return uid;
+            return acc;
         } catch (IOException e) {
             throw new RuntimeException("Error looking up principal by login name: " + e);
         }
     }
 
-    private static void registerLoginAccount() {
+    private static Account registerLoginAccount() {
         try {
+            short uid, gid;
+            String name;
             Path tempFile = Files.createTempFile("vaxterp", ".tmp");
             PosixFileAttributes posixAttrs = Files.getFileAttributeView(tempFile, PosixFileAttributeView.class).readAttributes();
             if (posixAttrs != null) {
-                String name = posixAttrs.owner().getName();
-                short uid = (short)posixAttrs.owner().hashCode();
-                short gid = (short)posixAttrs.group().hashCode();
-                accounts.put(uid, new Account(name, gid));
+                name = posixAttrs.owner().getName();
+                uid = (short)posixAttrs.owner().hashCode();
+                gid = (short)posixAttrs.group().hashCode();
             } else {
                 String ownerName = Files.getOwner(tempFile).getName();
-                String name = ownerName.substring(ownerName.lastIndexOf('\\') + 1);
-                short uid = (short)Files.getOwner(tempFile).hashCode();
-                accounts.put(uid, new Account(name, (short)-1));
+                name = ownerName.substring(ownerName.lastIndexOf('\\') + 1);
+                uid = (short)Files.getOwner(tempFile).hashCode();
+                gid = NO_GID;
             }
             Files.delete(tempFile);
+            Account acc = new Account(name, uid, gid);
+            accounts.put(uid, acc);
+            return acc;
         } catch (IOException e) {
             throw new RuntimeException("Error creating temporary file: " + e);
         }

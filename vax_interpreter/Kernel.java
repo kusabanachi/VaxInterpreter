@@ -439,7 +439,12 @@ class Kernel {
         times (43, 1),
         prof (44, 4),
         setgid (46, 1),
-        getgid (47, 0),
+        getgid (47, 0) {
+            @Override public void call(List<Integer> args, Context context) {
+                context.u.u_r.r_val1 = context.u.u_rgid;
+                context.u.u_r.r_val2 = context.u.u_gid;
+            }
+        },
         sig (48, 2) {
             @Override public void call(List<Integer> args, Context context) {
                 int signo = args.get(0);
