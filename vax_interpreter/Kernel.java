@@ -313,7 +313,26 @@ class Kernel {
                 }
             }
         },
-        chown (16, 3),
+        chown (16, 3) {
+            @Override public void call(List<Integer> args, Context context) {
+                if (context.u.u_uid != 0) {
+                    context.u.u_error = EPERM;
+                    return;
+                }
+
+                Path filePath = Paths.get(getFileName(args.get(0), context));
+                if (!Files.exists(filePath)) {
+                    context.u.u_error = ENOENT;
+                    return;
+                }
+
+                int uid = args.get(1);
+                int gid = args.get(2);
+                if (!changeFileOwner(filePath, uid, gid)) {
+                    context.u.u_error = EPERM;
+                }
+            }
+        },
         sbreak (17, 1),
         stat (18, 2) {
             @Override public void call(List<Integer> args, Context context) {
@@ -619,6 +638,33 @@ class Kernel {
             boolean wSet = file.setWritable((fmode & IWRITE) != 0, (fmode & IWRITE >> 6) == 0);
             boolean eSet = file.setExecutable((fmode & IEXEC) != 0, (fmode & IEXEC >> 6) == 0);
             return rSet && wSet && eSet;
+        }
+
+        private static boolean changeFileOwner(Path file, int uid, int gid) {
+            String usrName = UserAccounts.getUserName((short)uid);
+            String grpName = UserAccounts.getGroupName((short)gid);
+            if (grpName != null) {
+                PosixFileAttributeView attrView = Files.getFileAttributeView(file, PosixFileAttributeView.class);
+                if (attrView != null) {
+                    try {
+                        UserPrincipalLookupService lookupService = FileSystems.getDefault().getUserPrincipalLookupService();
+                        GroupPrincipal gPrincipal = lookupService.lookupPrincipalByGroupName(grpName);
+                        attrView.setGroup(gPrincipal);
+                        UserPrincipal uPrincipal = lookupService.lookupPrincipalByName(usrName);
+                        attrView.setOwner(uPrincipal);
+                        return true;
+                    } catch (IOException e) {}
+                }
+            }
+
+            try {
+                UserPrincipalLookupService lookupService = FileSystems.getDefault().getUserPrincipalLookupService();
+                UserPrincipal uPrincipal = lookupService.lookupPrincipalByName(usrName);
+                Files.setOwner(file, uPrincipal);
+                return true;
+            } catch (IOException e) {
+                return false;
+            }
         }
     }
 }

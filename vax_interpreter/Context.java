@@ -275,8 +275,10 @@ class Context {
             u_ofile[2] = FileItem.stderr;
             u_procp = Proc.newproc();
             Account acc = UserAccounts.getLoginAccount();
-            u_uid = u_ruid = acc.uid;
-            u_gid = u_rgid = acc.gid;
+            if (acc != null) {
+                u_uid = u_ruid = acc.uid;
+                u_gid = u_rgid = acc.gid;
+            }
         }
 
         User(User srcUser) {
