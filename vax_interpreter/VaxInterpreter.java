@@ -1,6 +1,7 @@
 package vax_interpreter;
 
 import java.util.*;
+import java.nio.file.Paths;
 import java.io.IOException;
 
 public class VaxInterpreter {
@@ -18,7 +19,7 @@ public class VaxInterpreter {
                     throw new IllegalArgumentException(args[argi]);
                 }
                 ++argi;
-                Kernel.rootPath = args[argi];
+                Kernel.rootdir = Paths.get(args[argi]);
             } else {
                 break;
             }

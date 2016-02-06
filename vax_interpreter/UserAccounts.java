@@ -35,7 +35,7 @@ class UserAccounts {
     }
 
     private static void readPasswd() {
-        Path passwd = Paths.get(Kernel.rootPath, "etc/passwd");
+        Path passwd = Kernel.rootdir.resolve("etc/passwd");
         try {
             for (String line : Files.readAllLines(passwd, StandardCharsets.US_ASCII)) {
                 String[] pwEnt = line.split(":");
@@ -50,7 +50,7 @@ class UserAccounts {
     }
 
     private static void readGroup() {
-        Path group = Paths.get(Kernel.rootPath, "etc/group");
+        Path group = Kernel.rootdir.resolve("etc/group");
         try {
             for (String line : Files.readAllLines(group, StandardCharsets.US_ASCII)) {
                 String[] grEnt = line.split(":");

@@ -15,10 +15,10 @@ import static vax_interpreter.Kernel.Constant.*;
 
 class Kernel {
 
-    static String rootPath;
+    static Path rootdir;
     static {
         String classPath = Thread.currentThread().getContextClassLoader().getResource("").getPath();
-        rootPath = Paths.get(classPath, "root").toString();
+        rootdir = new File(classPath, "root").toPath();
     }
 
     public static void syscall(int code, Context context) {
@@ -661,7 +661,7 @@ class Kernel {
             byte[] strBytes = context.memory.loadStringBytes(addr);
             String fname = new String(strBytes, 0, strBytes.length - 1, StandardCharsets.US_ASCII);
             if (fname.startsWith("/")) {
-                fname = Paths.get(rootPath, fname).toString();
+                fname = rootdir.resolve(fname.substring(1)).toString();
             }
             if (fname.isEmpty() && !Arrays.asList(option).contains(FileNameOption.NOCHANGE_BLANK)) {
                 fname = ".";
