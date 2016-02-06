@@ -276,6 +276,11 @@ class Kernel {
                 } catch (NoSuchFileException x) {
                     context.u.u_error = ENOENT;
                 } catch (FileAlreadyExistsException x) {
+                    if ((link.endsWith(".") || link.endsWith("..")) &&
+                            link.normalize().equals(target.normalize())) {
+                        // link to current or parent directory is not error.
+                        return;
+                    }
                     context.u.u_error = EEXIST;
                 } catch (IOException e) {
                     e.printStackTrace(System.err);
