@@ -60,7 +60,6 @@ class Kernel {
         public static final int NOFILE = 20;    /* max open files per contextess */
         public static final int NSIG = 17;
         public static final int NCARGS = 5120;  /* # characters in exec arglist */
-        public static final int CMASK = 0;      /* default mask for file creation */
 
         // Error
         public static final int EPERM = 1;

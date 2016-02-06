@@ -267,7 +267,7 @@ class Context {
         public Proc u_procp;
         public u_r u_r = new u_r();
         public int[] u_signal = new int[NSIG];
-        public short u_cmask = CMASK;
+        public short u_cmask = 02;
 
         User() {
             u_ofile[0] = FileItem.stdin;
