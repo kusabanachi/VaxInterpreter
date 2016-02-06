@@ -90,6 +90,7 @@ class Kernel {
         public static final int FWRITE = 2;
 
         /* inode modes */
+        public static final int IFMT = 0xf000;    /* type of file */
         public static final int IFDIR = 0x4000;    /* directory */
         public static final int IFREG = 0x8000;    /* regular */
 
@@ -303,7 +304,39 @@ class Kernel {
         exec (11, 2),
         chdir (12, 1),
         time (13, 0),
-        mknod (14, 3),
+        mknod (14, 3) {
+            @Override public void call(List<Integer> args, Context context) {
+                String fname = getFileName(args.get(0), context, FileNameOption.NOCHANGE_BLANK);
+                if (fname.isEmpty()) {
+                    context.u.u_error = ENOENT;
+                    return;
+                }
+                File file = new File(fname);
+                if (file.exists()) {
+                    context.u.u_error = EEXIST;
+                    return;
+                }
+
+                int fmode = args.get(1);
+                boolean created = false;
+                if ((fmode & IFMT) == 0) {
+                    try {
+                        created = file.createNewFile();
+                    } catch (IOException e) {}
+                } else if ((fmode & IFMT) == IFDIR) {
+                    created = file.mkdir();
+                } else {
+                    throw new RuntimeException("Device node is not supported.");
+                }
+
+                if (created) {
+                    setFileMode(file, fmode & ~context.u.u_cmask);
+                } else {
+                    context.u.u_error = ENFILE;
+                    return;
+                }
+            }
+        },
         chmod (15, 2) {
             @Override public void call(List<Integer> args, Context context) {
                 File file = new File(getFileName(args.get(0), context));
