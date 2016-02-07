@@ -1,22 +1,32 @@
 package vax_interpreter;
 
 import java.util.*;
-import java.nio.channels.*;
+import java.nio.channels.Channel;
+import java.nio.channels.FileChannel;
+import java.nio.channels.Channels;
+import java.nio.channels.SeekableByteChannel;
+import java.nio.channels.ReadableByteChannel;
+import java.nio.channels.WritableByteChannel;
+import java.nio.channels.NonWritableChannelException;
+import java.nio.channels.ClosedChannelException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
-import java.io.File;
-import java.io.RandomAccessFile;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.Files;
+import java.nio.file.OpenOption;
+import java.nio.file.StandardOpenOption;
+import java.nio.file.DirectoryStream;
+import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
 import java.io.IOException;
-import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import static vax_interpreter.Kernel.Constant.*;
 
 class FileItem {
     private final SeekableByteChannel chan;
+    private final Path path;
     private final byte f_flag;
     private byte f_count;
 
@@ -24,62 +34,63 @@ class FileItem {
     public static final FileItem stdout = new FileItem(new ConsoleChannel(System.out), FWRITE);
     public static final FileItem stderr = new FileItem(new ConsoleChannel(System.err), FWRITE);
 
-    private FileItem(SeekableByteChannel ch, int mode) {
+    private FileItem(SeekableByteChannel ch, Path path, int mode) {
         this.chan = ch;
+        this.path = path;
         this.f_flag = (byte)(mode & (FREAD | FWRITE));
         this.f_count = 1;
     }
 
+    private FileItem(SeekableByteChannel ch, int mode) {
+        this(ch, null, mode);
+    }
+
     public static FileItem open(String fname, int mode) throws FileItemException {
-        File file = new File(fname);
-        if (!file.exists()) {
+        Path fpath = Paths.get(fname);
+        if (!Files.exists(fpath, NOFOLLOW_LINKS)) {
             throw new FileItemException(ENOENT);
         }
-        if (file.isDirectory()) {
-            return openDir(file, mode);
+        if (Files.isDirectory(fpath, NOFOLLOW_LINKS)) {
+            return openDir(fpath, mode);
         } else {
-            return openFile(file, mode);
+            return openFile(fpath, mode);
         }
     }
 
-    private static FileItem openFile(File file, int mode) throws FileItemException {
+    private static FileItem openFile(Path fpath, int mode) throws FileItemException {
         if ((mode & FREAD) != 0) {
-            if (!file.canRead()) {
+            if (!Files.isReadable(fpath)) {
                 throw new FileItemException(EACCES);
             }
         }
         if ((mode & FWRITE) != 0) {
-            if (!file.canWrite()) {
+            if (!Files.isWritable(fpath)) {
                 throw new FileItemException(EACCES);
             }
         }
 
         try {
-            FileChannel ch = openFileCh(file, mode);
-            return new FileItem(ch, mode);
-        } catch (FileNotFoundException e) {
-            throw new FileItemException(ENOENT);
+            SeekableByteChannel ch = openChannel(fpath, mode);
+            return new FileItem(ch, fpath, mode);
         } catch (IOException e) {
-            throw new RuntimeException();
+            throw new RuntimeException(e);
         }
     }
 
-    private static FileChannel openFileCh(File file, int mode) throws FileNotFoundException, IOException {
-        FileChannel ch = null;
-        if ((mode & FREAD) != 0 && (mode & FWRITE) != 0) {
-            ch = new RandomAccessFile(file, "rw").getChannel();
-        } else if ((mode & FREAD) != 0) {
-            ch = new FileInputStream(file).getChannel();
-        } else if ((mode & FWRITE) != 0) {
-            ch = new FileOutputStream(file, true).getChannel();
-            ch.position(0);
-        }
-        return ch;
-    }
-
-    private static FileItem openDir(File dir, int mode) throws FileItemException {
+    private static SeekableByteChannel openChannel(Path fpath, int mode) throws IOException {
+        List<OpenOption> options = new ArrayList<>();
         if ((mode & FREAD) != 0) {
-            if (!dir.canRead()) {
+            options.add(StandardOpenOption.READ);
+        }
+        if ((mode & FWRITE) != 0) {
+            options.add(StandardOpenOption.WRITE);
+        }
+        return Files.newByteChannel(fpath, options.toArray(new OpenOption[0]));
+    }
+
+    private static FileItem openDir(Path dpath, int mode) throws FileItemException {
+        if ((mode & FREAD) != 0) {
+            if (!Files.isReadable(dpath)) {
                 throw new FileItemException(EACCES);
             }
         }
@@ -87,38 +98,38 @@ class FileItem {
             throw new FileItemException(EISDIR);
         }
 
-        return new FileItem(new DirChannel(dir), mode);
+        return new FileItem(new DirChannel(dpath), dpath, mode);
     }
 
     public static FileItem create(String fname, int fmode) throws FileItemException {
         boolean created = false;
 
-        File file = new File(fname);
-        if (!file.exists()) {
+        Path fpath = Paths.get(fname);
+        if (!Files.exists(fpath, NOFOLLOW_LINKS)) {
             try {
-                created = file.createNewFile();
-            } catch (IOException e) {}
-            if (!created) {
-                throw new FileItemException(ENFILE);
+                Files.createFile(fpath);
+                created = true;
+            } catch (IOException e) {
+                throw new FileItemException(ENOENT);
             }
         } else {
-            if (!file.canWrite()) {
+            if (!Files.isWritable(fpath)) {
                 throw new FileItemException(EACCES);
             }
         }
 
         FileItem fItem;
         try {
-            FileChannel ch = new FileOutputStream(file).getChannel();
-            fItem = new FileItem(ch, FWRITE);
-        } catch (FileNotFoundException e) {
-            throw new FileItemException(ENOENT);
+            SeekableByteChannel ch = Files.newByteChannel(fpath, StandardOpenOption.WRITE);
+            fItem = new FileItem(ch, fpath, FWRITE);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
 
-        // The file mode is set at last to succeed FileOutputStream constructer.
-        // If file mode is read-only, it will be failed.
+        // The file mode is set at last to make SeekableByteChannel with write option.
+        // If file mode is read-only, it would be failed.
         if (created) {
-            Kernel.Sysent.setFileMode(file, fmode);
+            Kernel.Sysent.setFileMode(fpath.toFile(), fmode);
         }
         return fItem;
     }
@@ -141,16 +152,14 @@ class FileItem {
 
         ByteBuffer buf = ByteBuffer.allocate(count);
         try {
-            int rcount = ((ReadableByteChannel)chan).read(buf);
+            int rcount = chan.read(buf);
             if (rcount > 0) {
                 return Arrays.copyOf(buf.array(), rcount);
             } else {
                 return new byte[0];
             }
-        } catch (NonReadableChannelException e) {
-            throw new FileItemException(EBADF);
         } catch (IOException e) {
-            throw new RuntimeException();
+            throw new RuntimeException(e);
         }
     }
 
@@ -161,11 +170,9 @@ class FileItem {
 
         ByteBuffer buf = ByteBuffer.wrap(bytes);
         try {
-            return ((WritableByteChannel)chan).write(buf);
-        } catch (NonWritableChannelException e) {
-            throw new FileItemException(EBADF);
+            return chan.write(buf);
         } catch (IOException e) {
-            throw new RuntimeException();
+            throw new RuntimeException(e);
         }
     }
 
@@ -190,18 +197,27 @@ class FileItem {
     public void addReference() {
         ++f_count;
     }
+
+    public Path getPath() {
+        return path;
+    }
 }
 
 class DirChannel implements SeekableByteChannel {
     private final ByteBuffer buf;
     private boolean isOpen;
 
-    public DirChannel(File dir) {
-        final int DirEntrySize = 16;
-
+    public DirChannel(Path dpath) {
         List<String> flist = new ArrayList<>(Arrays.asList(".", ".."));
-        flist.addAll(Arrays.asList(dir.list()));
+        try (DirectoryStream<Path> dstream = Files.newDirectoryStream(dpath)) {
+            for (Path entry : dstream) {
+                flist.add(entry.getFileName().toString());
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
 
+        final int DirEntrySize = 16;
         ByteBuffer buf = ByteBuffer.allocate(DirEntrySize * flist.size()).order(ByteOrder.LITTLE_ENDIAN);
         for (String fname : flist) {
             byte[] fnameb = fname.getBytes(StandardCharsets.US_ASCII);
