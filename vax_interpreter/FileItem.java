@@ -129,7 +129,7 @@ class FileItem {
         // The file mode is set at last to make SeekableByteChannel with write option.
         // If file mode is read-only, it would be failed.
         if (created) {
-            Kernel.Sysent.setFileMode(fpath.toFile(), fmode);
+            FileOperations.setFileMode(fpath, fmode);
         }
         return fItem;
     }

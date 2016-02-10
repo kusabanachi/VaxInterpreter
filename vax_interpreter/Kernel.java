@@ -3,13 +3,13 @@ package vax_interpreter;
 import java.util.*;
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.*;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.attribute.*;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static vax_interpreter.Util.*;
 import static vax_interpreter.Kernel.Constant.*;
 
@@ -310,42 +310,44 @@ class Kernel {
                     context.u.u_error = ENOENT;
                     return;
                 }
-                File file = new File(fname);
-                if (file.exists()) {
+                Path fpath = Paths.get(fname);
+                if (Files.exists(fpath)) {
                     context.u.u_error = EEXIST;
                     return;
                 }
 
                 int fmode = args.get(1);
-                boolean created = false;
                 if ((fmode & IFMT) == 0) {
                     try {
-                        created = file.createNewFile();
-                    } catch (IOException e) {}
+                        Files.createFile(fpath);
+                    } catch (IOException e) {
+                        context.u.u_error = ENOENT;
+                        return;
+                    }
                 } else if ((fmode & IFMT) == IFDIR) {
-                    created = file.mkdir();
+                    try {
+                        Files.createDirectory(fpath);
+                    } catch (IOException e) {
+                        context.u.u_error = ENOENT;
+                        return;
+                    }
                 } else {
                     throw new RuntimeException("Device node is not supported.");
                 }
 
-                if (created) {
-                    setFileMode(file, fmode & ~context.u.u_cmask);
-                } else {
-                    context.u.u_error = ENFILE;
-                    return;
-                }
+                FileOperations.setFileMode(fpath, fmode & ~context.u.u_cmask);
             }
         },
         chmod (15, 2) {
             @Override public void call(List<Integer> args, Context context) {
-                File file = new File(getFileName(args.get(0), context));
-                if (!file.exists()) {
+                Path fpath = Paths.get(getFileName(args.get(0), context));
+                if (!Files.exists(fpath)) {
                     context.u.u_error = ENOENT;
                     return;
                 }
 
                 int fmode = args.get(1);
-                if (!setFileMode(file, fmode)) {
+                if (!FileOperations.setFileMode(fpath, fmode)) {
                     context.u.u_error = EPERM;
                 }
             }
@@ -365,7 +367,7 @@ class Kernel {
 
                 int uid = args.get(1);
                 int gid = args.get(2);
-                if (!changeFileOwner(filePath, uid, gid)) {
+                if (!FileOperations.changeFileOwner(filePath, uid, gid)) {
                     context.u.u_error = EPERM;
                 }
             }
@@ -373,40 +375,20 @@ class Kernel {
         sbreak (17, 1),
         stat (18, 2) {
             @Override public void call(List<Integer> args, Context context) {
-                Path filePath = Paths.get(getFileName(args.get(0), context));
-                if (!Files.exists(filePath, NOFOLLOW_LINKS)) {
+                Path fpath = Paths.get(getFileName(args.get(0), context));
+                if (!Files.exists(fpath, NOFOLLOW_LINKS)) {
                     context.u.u_error = ENOENT;
                     return;
                 }
 
-                BasicFileAttributes attrs;
-                try {
-                    attrs = Files.readAttributes(filePath, BasicFileAttributes.class, NOFOLLOW_LINKS);
-                } catch (IOException e) {
+                byte[] fstatus = FileOperations.getFileStatus(fpath);
+                if (fstatus == null) {
                     context.u.u_error = EFAULT;
                     return;
                 }
 
-                final int StatSize = 32;
-                ByteBuffer statBuf = ByteBuffer.allocate(StatSize).order(ByteOrder.LITTLE_ENDIAN);
-                statBuf.putShort((short)0);                                 // st_dev
-                statBuf.putShort((short)0);                                 // st_ino
-                short st_mode = (short)(attrs.isRegularFile() ? IFREG :
-                                        attrs.isDirectory()   ? IFDIR :
-                                        0);
-                statBuf.putShort(st_mode);                                  // st_mode
-                statBuf.putShort((short)0);                                 // st_nlink
-                statBuf.putShort((short)0);                                 // st_uid
-                statBuf.putShort((short)0);                                 // st_gid
-                statBuf.putShort((short)0);                                 // st_rdev
-                statBuf.putShort((short)0);                                 // padding
-                statBuf.putInt((int)attrs.size());                          // st_size
-                statBuf.putInt((int)attrs.lastAccessTime().to(SECONDS));    // st_atime
-                statBuf.putInt((int)attrs.lastModifiedTime().to(SECONDS));  // st_mtime
-                statBuf.putInt(0);                                          // st_ctime
-
                 int addr = args.get(1);
-                context.memory.storeBytes(addr, statBuf.array(), StatSize);
+                context.memory.storeBytes(addr, fstatus, fstatus.length);
             }
         },
         seek (19, 3) {
@@ -668,40 +650,6 @@ class Kernel {
             }
 
             return fname;
-        }
-
-        public static boolean setFileMode(File file, int fmode) {
-            boolean rSet = file.setReadable((fmode & IREAD) != 0, (fmode & IREAD >> 6) == 0);
-            boolean wSet = file.setWritable((fmode & IWRITE) != 0, (fmode & IWRITE >> 6) == 0);
-            boolean eSet = file.setExecutable((fmode & IEXEC) != 0, (fmode & IEXEC >> 6) == 0);
-            return rSet && wSet && eSet;
-        }
-
-        private static boolean changeFileOwner(Path file, int uid, int gid) {
-            String usrName = UserAccounts.getUserName((short)uid);
-            String grpName = UserAccounts.getGroupName((short)gid);
-            if (grpName != null) {
-                PosixFileAttributeView attrView = Files.getFileAttributeView(file, PosixFileAttributeView.class);
-                if (attrView != null) {
-                    try {
-                        UserPrincipalLookupService lookupService = FileSystems.getDefault().getUserPrincipalLookupService();
-                        GroupPrincipal gPrincipal = lookupService.lookupPrincipalByGroupName(grpName);
-                        attrView.setGroup(gPrincipal);
-                        UserPrincipal uPrincipal = lookupService.lookupPrincipalByName(usrName);
-                        attrView.setOwner(uPrincipal);
-                        return true;
-                    } catch (IOException e) {}
-                }
-            }
-
-            try {
-                UserPrincipalLookupService lookupService = FileSystems.getDefault().getUserPrincipalLookupService();
-                UserPrincipal uPrincipal = lookupService.lookupPrincipalByName(usrName);
-                Files.setOwner(file, uPrincipal);
-                return true;
-            } catch (IOException e) {
-                return false;
-            }
         }
     }
 }
