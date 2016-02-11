@@ -208,21 +208,24 @@ class DirChannel implements SeekableByteChannel {
     private boolean isOpen;
 
     public DirChannel(Path dpath) {
-        List<String> flist = new ArrayList<>(Arrays.asList(".", ".."));
+        List<Path> files =
+            new ArrayList<>(Arrays.asList(dpath.resolve("."), dpath.resolve("..")));
         try (DirectoryStream<Path> dstream = Files.newDirectoryStream(dpath)) {
             for (Path entry : dstream) {
-                flist.add(entry.getFileName().toString());
+                files.add(entry);
             }
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
 
         final int DirEntrySize = 16;
-        ByteBuffer buf = ByteBuffer.allocate(DirEntrySize * flist.size()).order(ByteOrder.LITTLE_ENDIAN);
-        for (String fname : flist) {
-            byte[] fnameb = fname.getBytes(StandardCharsets.US_ASCII);
-            buf.putShort((short)0xffff);           // d_ino(dummy)
-            buf.put(Arrays.copyOf(fnameb, 14));    // d_name[14]
+        ByteBuffer buf = ByteBuffer.allocate(DirEntrySize * files.size())
+                                   .order(ByteOrder.LITTLE_ENDIAN);
+        for (Path entry : files) {
+            buf.putShort(FileOperations.getFileId(entry));    // d_ino
+            byte[] fname = entry.getFileName().toString()
+                                .getBytes(StandardCharsets.US_ASCII);
+            buf.put(Arrays.copyOf(fname, 14));                // d_name[14]
         }
         buf.flip();
 

@@ -91,11 +91,14 @@ class FileOperations {
         }
     }
 
-    private static short getFileId(Path fpath) {
+    public static short getFileId(Path fpath) {
         try {
             Object filekey = Files.readAttributes(fpath, BasicFileAttributes.class, NOFOLLOW_LINKS).fileKey();
             if (filekey != null) {
-                return (short)filekey.hashCode();
+                int hash = filekey.hashCode();
+                short upper = (short)(hash >> 16);
+                short lower = (short)hash;
+                return (short)((upper << 5) + lower);
             } else {
                 return (short)fpath.toAbsolutePath().normalize().hashCode();
             }
