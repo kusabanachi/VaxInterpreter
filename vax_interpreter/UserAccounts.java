@@ -85,8 +85,9 @@ class UserAccounts {
             short uid, gid;
             String usrName, grpName = "";
             Path tempFile = Files.createTempFile("vaxterp", ".tmp");
-            PosixFileAttributes posixAttrs = Files.getFileAttributeView(tempFile, PosixFileAttributeView.class).readAttributes();
-            if (posixAttrs != null) {
+            PosixFileAttributeView posixAttrView = Files.getFileAttributeView(tempFile, PosixFileAttributeView.class);
+            if (posixAttrView != null) {
+                PosixFileAttributes posixAttrs = posixAttrView.readAttributes();
                 usrName = posixAttrs.owner().getName();
                 uid = (short)posixAttrs.owner().hashCode();
                 grpName = posixAttrs.group().getName();
