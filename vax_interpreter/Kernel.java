@@ -72,6 +72,7 @@ class Kernel {
         public static final int EFAULT = 14;
         public static final int EBUSY = 16;
         public static final int EEXIST = 17;
+        public static final int ENOTDIR = 20;
         public static final int EISDIR = 21;
         public static final int EINVAL = 22;
         public static final int ENFILE = 23;
@@ -301,7 +302,25 @@ class Kernel {
             }
         },
         exec (11, 2),
-        chdir (12, 1),
+        chdir (12, 1) {
+            @Override public void call(List<Integer> args, Context context) {
+                Path dir = Paths.get(getFileName(args.get(0), context));
+                if (!Files.exists(dir, NOFOLLOW_LINKS)) {
+                    context.u.u_error = ENOENT;
+                    return;
+                }
+                if (!Files.isDirectory(dir, NOFOLLOW_LINKS)) {
+                    context.u.u_error = ENOTDIR;
+                    return;
+                }
+                if (!Files.isExecutable(dir)) {
+                    context.u.u_error = EACCES;
+                    return;
+                }
+
+                context.u.u_cdir = dir;
+            }
+        },
         time (13, 0),
         mknod (14, 3) {
             @Override public void call(List<Integer> args, Context context) {
@@ -662,9 +681,8 @@ class Kernel {
             String fname = new String(strBytes, 0, strBytes.length - 1, StandardCharsets.US_ASCII);
             if (fname.startsWith("/")) {
                 fname = rootdir.resolve(fname.substring(1)).toString();
-            }
-            if (fname.isEmpty() && !Arrays.asList(option).contains(FileNameOption.NOCHANGE_BLANK)) {
-                fname = ".";
+            } else if (!fname.isEmpty() || !Arrays.asList(option).contains(FileNameOption.NOCHANGE_BLANK)) {
+                fname = context.u.u_cdir.resolve(fname).toString();
             }
 
             return fname;

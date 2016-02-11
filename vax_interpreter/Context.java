@@ -265,6 +265,7 @@ class Context {
         public short u_gid;
         public short u_ruid;
         public short u_rgid;
+        public Path u_cdir;
         public FileItem u_ofile[] = new FileItem[NOFILE];
         public Proc u_procp;
         public u_r u_r = new u_r();
@@ -281,6 +282,7 @@ class Context {
                 u_uid = u_ruid = acc.uid;
                 u_gid = u_rgid = acc.gid;
             }
+            u_cdir = Paths.get(".");
         }
 
         User(User srcUser) {
@@ -289,6 +291,7 @@ class Context {
             u_gid = srcUser.u_gid;
             u_ruid = srcUser.u_ruid;
             u_rgid = srcUser.u_rgid;
+            u_cdir = srcUser.u_cdir;
             for (int i = 0; i < NOFILE; i++) {
                 u_ofile[i] = srcUser.u_ofile[i];
                 if (u_ofile[i] != null) {
