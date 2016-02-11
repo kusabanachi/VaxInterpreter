@@ -7,6 +7,8 @@ import java.util.*;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import static vax_interpreter.Util.*;
 import static vax_interpreter.Kernel.Constant.*;
 import vax_interpreter.Kernel.Proc;
@@ -463,12 +465,20 @@ class Context {
             }
         }
 
-        public void fileDuplicate(FileItem f1, int fd2) {
+        private void fileDuplicate(FileItem f1, int fd2) {
             if (u_ofile[fd2] != null) {
                 fileClose(fd2);
             }
             u_ofile[fd2] = f1;
             f1.addReference();
+        }
+
+        public Path getFilePath(int fd) {
+            FileItem f = getf(fd);
+            if (f != null) {
+                return f.getPath();
+            }
+            return null;
         }
 
         private int ufalloc() {

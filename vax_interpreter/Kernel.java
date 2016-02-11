@@ -420,7 +420,25 @@ class Kernel {
         stime (25, 1),
         ptrace (26, 4),
         alarm (27, 1),
-        fstat (28, 2),
+        fstat (28, 2) {
+            @Override public void call(List<Integer> args, Context context) {
+                int fd = args.get(0);
+                Path fpath = context.u.getFilePath(fd);
+                if (fpath == null) {
+                    context.u.u_error = EBADF;
+                    return;
+                }
+
+                byte[] fstatus = FileOperations.getFileStatus(fpath);
+                if (fstatus == null) {
+                    context.u.u_error = EFAULT;
+                    return;
+                }
+
+                int addr = args.get(1);
+                context.memory.storeBytes(addr, fstatus, fstatus.length);
+            }
+        },
         pause (29, 0),
         utime (30, 2),
         stty (31, 2),
