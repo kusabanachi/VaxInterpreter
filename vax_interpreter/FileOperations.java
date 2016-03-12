@@ -43,7 +43,7 @@ class FileOperations {
         statBuf.putInt((int)attrs.lastAccessTime().to(SECONDS));    // st_atime
         int mtime = (int)attrs.lastModifiedTime().to(SECONDS);
         statBuf.putInt(mtime);                                      // st_mtime
-        statBuf.putInt(mtime);                                     // st_ctime
+        statBuf.putInt(mtime);                                      // st_ctime
         return statBuf.array();
     }
 

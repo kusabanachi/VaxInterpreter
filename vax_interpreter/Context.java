@@ -329,39 +329,36 @@ class Context {
         }
 
         public int fileOpen(String fname, int mode) {
-            FileItem f;
-            try {
-                f = FileItem.open(fname, mode);
-            } catch (FileItemException e) {
-                u_error = e.error;
+            int fd = ufalloc();
+            if (fd < 0) {
+                u_error = EMFILE;
                 return -1;
             }
 
-            int fd = ufalloc();
-            if (fd >= 0) {
+            try {
+                FileItem f = FileItem.open(fname, mode);
                 u_ofile[fd] = f;
                 return fd;
-            } else {
-                u_error = EMFILE;
+            } catch (FileItemException e) {
+                u_error = e.error;
                 return -1;
             }
         }
 
         public int fileCreate(String fname, int fmode) {
-            FileItem f;
-            try {
-                f = FileItem.create(fname, fmode & ~u_cmask);
-            } catch (FileItemException e) {
-                u_error = e.error;
+            int fd = ufalloc();
+            if (fd < 0) {
+                u_error = EMFILE;
                 return -1;
             }
 
-            int fd = ufalloc();
-            if (fd >= 0) {
+            try {
+                FileItem f = FileItem.create(fname, fmode & ~u_cmask);
                 u_ofile[fd] = f;
                 return fd;
-            } else {
-                u_error = EMFILE;
+
+            } catch (FileItemException e) {
+                u_error = e.error;
                 return -1;
             }
         }
@@ -378,47 +375,50 @@ class Context {
 
         public int fileRead(int fd, int addr, int count) {
             FileItem f = getf(fd);
-            if (f != null) {
-                try {
-                    byte[] readBytes = f.read(count);
-                    memory.storeBytes(addr, readBytes, readBytes.length);
-                    return readBytes.length;
-                } catch (FileItemException e) {
-                    u_error = e.error;
-                }
-            } else {
+            if (f == null) {
                 u_error = EBADF;
+                return -1;
             }
-            return -1;
+
+            try {
+                byte[] readBytes = f.read(count);
+                memory.storeBytes(addr, readBytes, readBytes.length);
+                return readBytes.length;
+            } catch (FileItemException e) {
+                u_error = e.error;
+                return -1;
+            }
         }
 
         public int fileWrite(int fd, int addr, int count) {
             FileItem f = getf(fd);
-            if (f != null) {
-                try {
-                    byte[] bytes = memory.loadBytes(addr, count);
-                    return f.write(bytes);
-                } catch (FileItemException e) {
-                    u_error = e.error;
-                }
-            } else {
+            if (f == null) {
                 u_error = EBADF;
+                return -1;
             }
-            return -1;
+
+            try {
+                byte[] bytes = memory.loadBytes(addr, count);
+                return f.write(bytes);
+            } catch (FileItemException e) {
+                u_error = e.error;
+                return -1;
+            }
         }
 
         public int fileSeek(int fd, int offset, int sbase) {
             FileItem f = getf(fd);
-            if (f != null) {
-                try {
-                    return f.seek(offset, sbase);
-                } catch (FileItemException e) {
-                    u_error = e.error;
-                }
-            } else {
+            if (f == null) {
                 u_error = EBADF;
+                return -1;
             }
-            return -1;
+
+            try {
+                return f.seek(offset, sbase);
+            } catch (FileItemException e) {
+                u_error = e.error;
+                return -1;
+            }
         }
 
         public boolean isNormalFile(int fd) {
@@ -427,8 +427,8 @@ class Context {
                 return f.isNormalFile();
             } else {
                 u_error = EBADF;
+                return false;
             }
-            return false;
         }
 
         public int fileDup(int fd1) {
@@ -485,17 +485,12 @@ class Context {
         }
 
         private int ufalloc() {
-            int fd;
-            for (fd = 0; fd < NOFILE; fd++) {
+            for (int fd = 0; fd < NOFILE; fd++) {
                 if (u_ofile[fd] == null) {
-                    break;
+                    return fd;
                 }
             }
-            if (fd < NOFILE) {
-                return fd;
-            } else {
-                return -1;
-            }
+            return -1;
         }
 
         private FileItem getf(int fd) {
