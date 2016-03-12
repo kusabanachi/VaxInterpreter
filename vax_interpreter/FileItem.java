@@ -22,6 +22,7 @@ import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.channels.Pipe;
 import static vax_interpreter.Kernel.Constant.*;
 
 class FileItem {
@@ -134,6 +135,12 @@ class FileItem {
         return fItem;
     }
 
+    public static FileItem[] openPipe() {
+        PipeChannel pipech = new PipeChannel();
+        return new FileItem[] {new FileItem(pipech, null, FREAD),
+                               new FileItem(pipech, null, FWRITE)};
+    }
+
     public void close() {
         if (--f_count > 0) {
             return;
@@ -172,11 +179,20 @@ class FileItem {
         try {
             return chan.write(buf);
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            Throwable cause = e.getCause();
+            if (cause instanceof FileItemException) {
+                throw (FileItemException)cause;
+            } else {
+                throw new RuntimeException(e);
+            }
         }
     }
 
     public int seek(int offset, int sbase) throws FileItemException {
+        if (chan instanceof PipeChannel) {
+            throw new FileItemException(ESPIPE);
+        }
+
         try {
             if (sbase == 1) {
                 offset += chan.position();
@@ -186,7 +202,7 @@ class FileItem {
             chan.position(offset);
             return offset;
         } catch (IOException e) {
-            throw new FileItemException(ESPIPE);
+            throw new RuntimeException(e);
         }
     }
 
@@ -332,6 +348,118 @@ class ConsoleChannel implements SeekableByteChannel {
 
     @Override public boolean isOpen() {
         return chan.isOpen();
+    }
+}
+
+class PipeChannel implements SeekableByteChannel {
+    private static final int PIPSIZ = 4096;
+
+    private final Pipe.SinkChannel sinkChan;
+    private final Pipe.SourceChannel srcChan;
+    private byte i_count;
+    private int i_size;
+    private long position;
+
+    public PipeChannel() {
+        try {
+            Pipe pipe = Pipe.open();
+            this.sinkChan = pipe.sink();
+            this.srcChan = pipe.source();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        this.i_count = 2;
+    }
+
+    @Override public long position() throws IOException {
+        return position;
+    }
+
+    @Override public SeekableByteChannel position(long newPosition) throws IOException {
+        position = newPosition;
+        return this;
+    }
+
+    @Override public int read(ByteBuffer dst) throws IOException {
+        while (i_size == 0) {
+            // pipe is empty
+
+            if (i_count < 2) {
+                // no writing pipe
+                return -1;
+            }
+
+            try {
+                Context.class.wait();
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        int readCount = srcChan.read(dst);
+        position += readCount;
+        if (position == i_size) {
+            position = 0;
+            i_size = 0;
+        }
+
+        return readCount;
+    }
+
+    @Override public long size() throws IOException {
+        return i_size;
+    }
+
+    @Override public SeekableByteChannel truncate(long size) throws IOException {
+        throw new IOException();
+    }
+
+    @Override public int write(ByteBuffer src) throws IOException {
+        int resid = src.remaining();
+        int writeCount = resid;
+
+        while (resid > 0) {
+            if (i_count < 2) {
+                // no reading pipe
+                throw new IOException(new FileItemException(EPIPE));
+            }
+
+            if (i_size >= PIPSIZ) {
+                // pipe is full
+                try {
+                    Context.class.wait();
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+                continue;
+            }
+
+            writeCount = writep(src, Math.min(resid, PIPSIZ));
+            resid -= writeCount;
+            i_size += writeCount;
+        }
+        return writeCount;
+    }
+
+    private int writep(ByteBuffer src, int count) throws IOException {
+        int preLimit = src.limit();
+        src.limit(src.position() + count);
+        int n = sinkChan.write(src);
+        src.limit(preLimit);
+        return n;
+    }
+
+
+    @Override public void close() throws IOException {
+        if (--i_count > 0) {
+            return;
+        }
+        srcChan.close();
+        sinkChan.close();
+    }
+
+    @Override public boolean isOpen() {
+        return true;
     }
 }
 

@@ -476,6 +476,31 @@ class Context {
             f1.addReference();
         }
 
+        public int[] pipe() {
+            FileItem[] pipes = FileItem.openPipe();
+
+            int rfd = ufalloc();
+            if (rfd < 0) {
+                pipes[0].close();
+                pipes[1].close();
+                u_error = EMFILE;
+                return null;
+            }
+            u_ofile[rfd] = pipes[0];
+
+            int wfd = ufalloc();
+            if (wfd < 0) {
+                pipes[0].close();
+                pipes[1].close();
+                u_ofile[rfd] = null;
+                u_error = EMFILE;
+                return null;
+            }
+            u_ofile[wfd] = pipes[1];
+
+            return new int[] {rfd, wfd};
+        }
+
         public Path getFilePath(int fd) {
             FileItem f = getf(fd);
             if (f != null) {

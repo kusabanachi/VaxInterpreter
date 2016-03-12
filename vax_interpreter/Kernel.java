@@ -79,6 +79,7 @@ class Kernel {
         public static final int EMFILE = 24;
         public static final int ENOTTY = 25;
         public static final int ESPIPE = 29;
+        public static final int EPIPE = 32;
 
         /* read, write, execute permissions */
         public static final int IREAD = 0400;
@@ -510,7 +511,15 @@ class Kernel {
                 }
             }
         },
-        pipe (42, 0),
+        pipe (42, 0) {
+            @Override public void call(List<Integer> args, Context context) {
+                int[] fds = context.u.pipe();
+                if (context.u.u_error == 0) {
+                    context.u.u_r.r_val1 = fds[0];
+                    context.u.u_r.r_val2 = fds[1];
+                }
+            }
+        },
         times (43, 1),
         prof (44, 4),
         setgid (46, 1),
