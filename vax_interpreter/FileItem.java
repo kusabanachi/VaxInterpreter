@@ -390,6 +390,7 @@ class PipeChannel implements SeekableByteChannel {
             }
 
             try {
+                Context.class.notifyAll();
                 Context.class.wait();
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
@@ -427,6 +428,7 @@ class PipeChannel implements SeekableByteChannel {
             if (i_size >= PIPSIZ) {
                 // pipe is full
                 try {
+                    Context.class.notifyAll();
                     Context.class.wait();
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
