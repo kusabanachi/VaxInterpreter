@@ -5,14 +5,13 @@ import java.nio.ByteOrder;
 import static vax_interpreter.Util.*;
 
 abstract class Operand {
-    private static final int PC = 0xf;
     protected int len;
 
     protected final Context context;
-    protected final DataType dataType;
+    public final DataType dataType;
 
-    abstract public IntData getValue();
-    abstract public void setValue(IntData val);
+    public abstract IntData getValue();
+    public abstract void setValue(IntData val);
 
     protected Operand(Context context, DataType dataType) {
         this.context = context;
@@ -27,7 +26,7 @@ abstract class Operand {
         }
     }
 
-    public static Operand fetchGeneralAddress(Context context, DataType type) {
+    protected static Operand fetchGeneralAddress(Context context, DataType type) {
         int head = context.lookAhead();
         if (head == -1) {
             return null;
@@ -74,14 +73,15 @@ abstract class Operand {
         return len;
     }
 
-    protected String regStr(int val) {
+    protected String regStr(int regNum) {
         final String [] regs = {"r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7",
                                 "r8", "r9", "r10", "r11", "ap", "fp", "sp", "pc"};
-        return regs[val & 0xf];
+        return regs[regNum & 0xf];
     }
 
-    protected boolean isPC(int val) {
-        return (val & 0xf) == PC;
+    protected boolean isPC(int regNum) {
+        final int PC = 0xf;
+        return (regNum & 0xf) == PC;
     }
 }
 

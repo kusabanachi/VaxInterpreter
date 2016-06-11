@@ -4,6 +4,51 @@ import java.util.*;
 import static vax_interpreter.Util.*;
 import static vax_interpreter.DataType.*;
 
+import static vax_interpreter.NopExec.*;
+import static vax_interpreter.MovExec.*;
+import static vax_interpreter.MovzExec.*;
+import static vax_interpreter.PushExec.*;
+import static vax_interpreter.MovaExec.*;
+import static vax_interpreter.PushaExec.*;
+import static vax_interpreter.McomExec.*;
+import static vax_interpreter.MnegExec.*;
+import static vax_interpreter.FmnegExec.*;
+import static vax_interpreter.AddExec.*;
+import static vax_interpreter.SubExec.*;
+import static vax_interpreter.MulExec.*;
+import static vax_interpreter.DivExec.*;
+import static vax_interpreter.BitExec.*;
+import static vax_interpreter.BisExec.*;
+import static vax_interpreter.BicExec.*;
+import static vax_interpreter.XorExec.*;
+import static vax_interpreter.ClrExec.*;
+import static vax_interpreter.IncExec.*;
+import static vax_interpreter.DecExec.*;
+import static vax_interpreter.AshExec.*;
+import static vax_interpreter.TstExec.*;
+import static vax_interpreter.CmpExec.*;
+import static vax_interpreter.ExtExec.*;
+import static vax_interpreter.InsvExec.*;
+import static vax_interpreter.JmpExec.*;
+import static vax_interpreter.BrExec.*;
+import static vax_interpreter.BbExec.*;
+import static vax_interpreter.BlbExec.*;
+import static vax_interpreter.CallExec.*;
+import static vax_interpreter.RetExec.*;
+import static vax_interpreter.ChmkExec.*;
+import static vax_interpreter.CaseExec.*;
+import static vax_interpreter.AobExec.*;
+import static vax_interpreter.SobExec.*;
+import static vax_interpreter.CvtExec.*;
+import static vax_interpreter.CvtlpExec.*;
+import static vax_interpreter.AcbExec.*;
+import static vax_interpreter.MovcExec.*;
+import static vax_interpreter.CmpcExec.*;
+import static vax_interpreter.LoccExec.*;
+import static vax_interpreter.MovpExec.*;
+import static vax_interpreter.EditpcExec.*;
+
+
 enum DataType {
     B(1), W(2), L(4), Q(8), O(16),
     F(4, " [f-float]"), D(8, " [d-float]"), G(8, " [g-float]"), H(16, " [h-float]"),
@@ -22,65 +67,18 @@ enum DataType {
 }
 
 class Opcode {
-    private final static HashMap<Integer, ICode> codeMap;
+    private final static HashMap<Integer, VaxInstruction> instructionMap;
     static {
-        ICode[][] codes = {
-            Nop.values(),
-            Mov.values(),
-            Movz.values(),
-            Push.values(),
-            MovA.values(),
-            PushA.values(),
-            Mcom.values(),
-            Mneg.values(),
-            FMneg.values(),
-            Add.values(),
-            Sub.values(),
-            Mul.values(),
-            Div.values(),
-            Bit.values(),
-            Bis.values(),
-            Bic.values(),
-            Xor.values(),
-            Clr.values(),
-            Inc.values(),
-            Dec.values(),
-            Ash.values(),
-            Tst.values(),
-            Cmp.values(),
-            Ext.values(),
-            Insv.values(),
-            Jmp.values(),
-            Br.values(),
-            Bb.values(),
-            Blb.values(),
-            Call.values(),
-            Ret.values(),
-            Chmk.values(),
-            Case.values(),
-            Aob.values(),
-            Sob.values(),
-            Cvt.values(),
-            Cvtlp.values(),
-            Acb.values(),
-            Movc.values(),
-            Cmpc.values(),
-            Locc.values(),
-            Movp.values(),
-            Editpc.values()
-        };
-        codeMap = new HashMap<>();
-        for (ICode[] codesArray : codes) {
-            for (ICode opc : codesArray) {
-                codeMap.put(opc.bin(), opc);
-            }
+        VaxInstruction[] instructions = VaxInstruction.values();
+        instructionMap = new HashMap<>();
+        for (VaxInstruction instruction : instructions) {
+            instructionMap.put(instruction.bin, instruction);
         }
     }
 
-    private final ICode code;
-    private static Context context;
-    protected Opcode(ICode code) {
-        this.code = code;
+    private final VaxInstruction instruction;
+    protected Opcode(VaxInstruction instruction) {
+        this.instruction = instruction;
     }
 
     public static Opcode fetch(Context context) {
@@ -91,2333 +89,1566 @@ class Opcode {
                 return null;
             }
             bin += val << i * 8;
-            ICode opc = codeMap.get(bin);
-            if (opc != null) {
-                return new Opcode(opc);
+            VaxInstruction instruction = instructionMap.get(bin);
+            if (instruction != null) {
+                return new Opcode(instruction);
             }
         }
         return new Nullcode(bin);
     }
 
     public DataType[] operands() {
-        return code.operands();
+        return instruction.operands;
     }
 
     public String mnemonic() {
-        return code.mnemonic();
+        return instruction.mnemonic;
     }
 
     public int len() {
-        return code.bin() <= 0xff ? 1 : 2;
+        return instruction.bin <= 0xff ? 1 : 2;
     }
 
     public void execute(List<Operand> oprs, Context c) {
-        context = c;
-        code.execute(oprs);
+        instruction.execute(oprs, c);
+    }
+}
+
+
+enum VaxInstruction {
+    NOP (0x1, NopExec),
+
+    MOVB (0x90, MovExec, B,B),   MOVW (0xb0, MovExec, W,W),
+    MOVL (0xd0, MovExec, L,L),   MOVQ (0x7d, MovExec, Q,Q),
+    MOVO (0x7dfd, MovExec, O,O),
+    MOVF (0x50, MovExec, F,F),   MOVD (0x70, MovExec, D,D),
+    MOVG (0x50fd, MovExec, G,G), MOVH (0x70fd, MovExec, H,H),
+
+    MOVZBW (0x9b, MovzExec, B,W), MOVZBL (0x9a, MovzExec, B,L),
+    MOVZWL (0x3c, MovzExec, W,L),
+
+    PUSHL (0xdd, PushExec, L),
+
+    MOVAB (0x9e, MovaExec, B,L), MOVAW (0x3e, MovaExec, W,L),
+    MOVAL (0xde, MovaExec, L,L), MOVAQ (0x7e, MovaExec, Q,L),
+    MOVAO (0x7efd, MovaExec, O,L),
+
+    PUSHAB (0x9f, PushaExec, B), PUSHAW (0x3f, PushaExec, W),
+    PUSHAL (0xdf, PushaExec, L),
+    PUSHAQ (0x7f, PushaExec, Q), PUSHAO (0x7ffd, PushaExec, O),
+
+    MCOMB (0x92, McomExec, B,B), MCOMW (0xb2, McomExec, W,W),
+    MCOML (0xd2, McomExec, L,L),
+
+    MNEGB (0x8e, MnegExec, B,B), MNEGW (0xae, MnegExec, W,W),
+    MNEGL (0xce, MnegExec, L,L),
+
+    MNEGF (0x52, FmnegExec, F,F),   MNEGD (0x72, FmnegExec, D,D),
+    MNEGG (0x52fd, FmnegExec, G,G), MNEGH (0x72fd, FmnegExec, H,H),
+
+    ADDB2 (0x80, AddExec, B,B), ADDB3 (0x81, AddExec, B,B,B),
+    ADDW2 (0xa0, AddExec, W,W), ADDW3 (0xa1, AddExec, W,W,W),
+    ADDL2 (0xc0, AddExec, L,L), ADDL3 (0xc1, AddExec, L,L,L),
+
+    /*
+    ADDF2 (0x40, FaddExec, F,F),   ADDF3 (0x41, FaddExec, F,F,F),
+    ADDD2 (0x60, FaddExec, D,D),   ADDD3 (0x61, FaddExec, D,D,D),
+    ADDG2 (0x40fd, FaddExec, G,G), ADDG3 (0x41fd, FaddExec, G,G,G),
+    ADDH2 (0x60fd, FaddExec, H,H), ADDH3 (0x61fd, FaddExec, H,H,H),
+    */
+
+    SUBB2 (0x82, SubExec, B,B), SUBB3 (0x83, SubExec, B,B,B),
+    SUBW2 (0xa2, SubExec, W,W), SUBW3 (0xa3, SubExec, W,W,W),
+    SUBL2 (0xc2, SubExec, L,L), SUBL3 (0xc3, SubExec, L,L,L),
+
+    /*
+    SUBF2 (0x42, F,F),   SUBF3 (0x43, F,F,F),
+    SUBD2 (0x62, D,D),   SUBD3 (0x63, D,D,D),
+    SUBG2 (0x42fd, G,G), SUBG3 (0x43fd, G,G,G),
+    SUBH2 (0x62fd, H,H), SUBH3 (0x63fd, H,H,H),
+    */
+
+    MULB2 (0x84, MulExec, B,B), MULB3 (0x85, MulExec, B,B,B),
+    MULW2 (0xa4, MulExec, W,W), MULW3 (0xa5, MulExec, W,W,W),
+    MULL2 (0xc4, MulExec, L,L), MULL3 (0xc5, MulExec, L,L,L),
+
+    DIVB2 (0x86, DivExec, B,B), DIVB3 (0x87, DivExec, B,B,B),
+    DIVW2 (0xa6, DivExec, W,W), DIVW3 (0xa7, DivExec, W,W,W),
+    DIVL2 (0xc6, DivExec, L,L), DIVL3 (0xc7, DivExec, L,L,L),
+
+    BITB (0x93, BitExec, B,B), BITW (0xb3, BitExec, W,W),
+    BITL (0xd3, BitExec, L,L),
+
+    BISB2 (0x88, BisExec, B,B), BISB3 (0x89, BisExec, B,B,B),
+    BISW2 (0xa8, BisExec, W,W), BISW3 (0xa9, BisExec, W,W,W),
+    BISL2 (0xc8, BisExec, L,L), BISL3 (0xc9, BisExec, L,L,L),
+
+    BICB2 (0x8a, BicExec, B,B), BICB3 (0x8b, BicExec, B,B,B),
+    BICW2 (0xaa, BicExec, W,W), BICW3 (0xab, BicExec, W,W,W),
+    BICL2 (0xca, BicExec, L,L), BICL3 (0xcb, BicExec, L,L,L),
+
+    XORB2 (0x8c, XorExec, B,B), XORB3 (0x8d, XorExec, B,B,B),
+    XORW2 (0xac, XorExec, W,W), XORW3 (0xad, XorExec, W,W,W),
+    XORL2 (0xcc, XorExec, L,L), XORL3 (0xcd, XorExec, L,L,L),
+
+    CLRB (0x94, ClrExec, B), CLRW (0xb4, ClrExec, W),
+    CLRL (0xd4, ClrExec, L),
+    CLRQ (0x7c, ClrExec, Q), CLRO (0x7cfd, ClrExec, O),
+
+    INCB (0x96, IncExec, B), INCW (0xb6, IncExec, W),
+    INCL (0xd6, IncExec, L),
+
+    DECB (0x97, DecExec, B), DECW (0xb7, DecExec, W),
+    DECL (0xd7, DecExec, L),
+
+    ASHL (0x78, AshlExec, B,L,L), ASHQ (0x79, AshqExec, B,Q,Q),
+
+    TSTB (0x95, TstExec, B),   TSTW (0xb5, TstExec, W),
+    TSTL (0xd5, TstExec, L),
+    TSTF (0x53, TstExec, F),   TSTD (0x73, TstExec, D),
+    TSTG (0x53fd, TstExec, G), TSTH (0x73fd, TstExec, H),
+
+    CMPB (0x91, CmpExec, B,B), CMPW (0xb1, CmpExec, W,W),
+    CMPL (0xd1, CmpExec, L,L),
+
+    /*
+    CMPF (0x51, F,F),   CMPD (0x71, D,D),
+    CMPG (0x51fd, G,G), CMPH (0x71fd, H,H),
+    */
+
+    EXTV (0xee, ExtvExec, L,B,B,L),
+    EXTZV (0xef, ExtzvExec, L,B,B,L),
+
+    INSV (0xf0, InsvExec, L,L,B,B),
+
+    JMP (0x17, JmpExec, B),
+    BRB (0x11, BrExec, BrB),      BRW (0x31, BrExec, BrW),
+    BNEQ (0x12, BneqExec, BrB),   BEQL (0x13, BeqlExec, BrB),
+    BGTR (0x14, BgtrExec, BrB),   BLEQ (0x15, BleqExec, BrB),
+    BGEQ (0x18, BgeqExec, BrB),   BLSS (0x19, BlssExec, BrB),
+    BGTRU (0x1a, BgtruExec, BrB), BLEQU (0x1b, BlequExec, BrB),
+    BVC (0x1c, BvcExec, BrB),     BVS (0x1d, BvsExec, BrB),
+    BCC (0x1e, BccExec, BrB),     BLSSU (0x1f, BlssuExec, BrB),
+
+    BBS (0xe0, BbsExec, L,B,BrB),    BBC (0xe1, BbcExec, L,B,BrB),
+    BBSS (0xe2, BbssExec, L,B,BrB),  BBCS (0xe3, BbcsExec, L,B,BrB),
+    BBSC (0xe4, BbscExec, L,B,BrB),  BBCC  (0xe5, BbccExec, L,B,BrB),
+    BBSSI (0xe6, BbssExec, L,B,BrB), BBCCI (0xe7, BbccExec, L,B,BrB),
+
+    BLBS (0xe8, BlbsExec, L,BrB), BLBC (0xe9, BlbcExec, L,BrB),
+
+    CALLG (0xfa, CallgExec, B,B), CALLS (0xfb, CallsExec, L,B),
+
+    RET (0x4, RetExec),
+
+    CHMK (0xbc, ChmkExec, W),
+
+    CASEB (0x8f, CaseExec, B,B,B), CASEW (0xaf, CaseExec, W,W,W),
+    CASEL (0xcf, CaseExec, L,L,L),
+
+    AOBLSS(0xf2, AoblssExec, L,L,BrB),
+    AOBLEQ(0xf3, AobleqExec, L,L,BrB),
+
+    SOBGEQ (0xf4, SobgeqExec, L,BrB),
+    SOBGTR(0xf5, SobgtrExec, L,BrB),
+
+    CVTBW (0x99, CvtExec, B,W), CVTBL (0x98, CvtExec, B,L),
+    CVTWB (0x33, CvtExec, W,B), CVTWL (0x32, CvtExec, W,L),
+    CVTLB (0xf6, CvtExec, L,B), CVTLW (0xf7, CvtExec, L,W),
+
+    /*
+    CVTBF (0x4c, B,F),   CVTBD (0x6c, B,D),
+    CVTBG (0x4cfd, B,G), CVTBH (0x6cfd, B,H),
+    CVTWF (0x4d, W,F),   CVTWD (0x6d, W,D),
+    CVTWG (0x4dfd, W,G), CVTWH (0x6dfd, W,H),
+    CVTLF (0x4e, L,F),   CVTLD (0x6e, L,D),
+    CVTLG (0x4efd, L,G), CVTLH (0x6efd, L,H),
+    CVTFB (0x48, F,B),   CVTDB (0x68, D,B),
+    CVTGB (0x48fd, G,B), CVTHB (0x68fd, H,B),
+    CVTFW (0x49, F,W),   CVTDW (0x69, D,W),
+    CVTGW (0x49fd, G,W), CVTHW (0x69fd, H,W),
+    CVTFL (0x4a, F,L),   CVTRFL(0x4b, F,L),
+    CVTDL (0x6a, D,L),   CVTRDL(0x6b, D,L),
+    CVTGL (0x4afd, G,L), CVTRGL(0x4bfd, G,L),
+    CVTHL (0x6afd, H,L), CVTRHL(0x6bfd, H,L),
+    CVTFD (0x56, F,D),   CVTFG (0x99fd, F,G),
+    CVTFH (0x98fd, F,H), CVTDF (0x76, D,F),
+    CVTDH (0x32fd, D,H), CVTGF (0x33fd, G,F),
+    CVTGH (0x56fd, G,H), CVTHF (0xf6fd, H,F),
+    CVTHD (0xf7fd, H,D), CVTHG (0x76fd, H,G),
+    */
+
+    CVTLP (0xf9, CvtlpExec, L,W,B),
+
+    ACBB (0x9d, AcbExec, B,B,B,BrW), ACBW (0x3d, AcbExec, W,W,W,BrW),
+    ACBL (0xf1, AcbExec, L,L,L,BrW),
+
+    MOVC3 (0x28, MovcExec, W,B,B), MOVC5 (0x2c, MovcExec, W,B,B,W,B),
+
+    CMPC3 (0x29, CmpcExec, W,B,B), CMPC5 (0x2d, CmpcExec, W,B,B,W,B),
+
+    LOCC (0x3a, LoccExec, B,W,B), SKPC (0x3b, SkpcExec, B,W,B),
+
+    MOVP (0x34, MovpExec, W,B,B),
+
+    EDITPC (0x38, EditpcExec, W,B,B,B);
+
+    public final int bin;
+    private final CodeExec strategy;
+    public final DataType[] operands;
+    public final String mnemonic;
+
+    private VaxInstruction(int bin, CodeExec strategy, DataType... oprs) {
+        this.bin = bin;
+        this.strategy = strategy;
+        this.operands = oprs;
+        this.mnemonic = name().toLowerCase(Locale.ENGLISH);
     }
 
-
-    interface ICode {
-        public int bin();
-        public DataType[] operands();
-        public String mnemonic();
-        public void execute(List<Operand> oprs);
+    public void execute(List<Operand> oprs, Context context) {
+        strategy.execute(oprs, context);
     }
+}
 
 
-    enum Nop implements ICode {
-        NOP (0x1);
+interface CodeExec {
+    public void execute(List<Operand> oprs, Context context);
+}
 
-        private final int bin;
-        private final DataType[] operands;
+enum NopExec implements CodeExec {
+    NopExec;
+    @Override
+    public void execute(List<Operand> oprs, Context context) {}
+}
 
-        private Nop(int bin, DataType... oprs) {
-            this.bin = bin;
-            this.operands = oprs;
-        }
-
-        @Override public int bin() {
-            return bin;
-        }
-
-        @Override public DataType[] operands() {
-            return operands;
-        }
-
-        @Override public String mnemonic() {
-            return name().toLowerCase(Locale.ENGLISH);
-        }
-
-        @Override public void execute(List<Operand> oprs) {
-        }
+enum MovExec implements CodeExec {
+    MovExec;
+    @Override
+    public void execute(List<Operand> oprs, Context context) {
+        IntData srcVal = oprs.get(0).getValue();
+        Operand dest = oprs.get(1);
+        dest.setValue(srcVal);
+        context.flagN.set( srcVal.isNegValue() );
+        context.flagZ.set( srcVal.isZeroValue() );
+        context.flagV.clear();
     }
+}
 
-    enum Mov implements ICode {
-        MOVB (0x90, B,B),   MOVW (0xb0, W,W),
-        MOVL (0xd0, L,L),   MOVQ (0x7d, Q,Q),
-        MOVO (0x7dfd, O,O),
-        MOVF (0x50, F,F),   MOVD (0x70, D,D),
-        MOVG (0x50fd, G,G), MOVH (0x70fd, H,H);
-
-        private final int bin;
-        private final DataType[] operands;
-
-        private Mov(int bin, DataType... oprs) {
-            this.bin = bin;
-            this.operands = oprs;
-        }
-
-        @Override public int bin() {
-            return bin;
-        }
-
-        @Override public DataType[] operands() {
-            return operands;
-        }
-
-        @Override public String mnemonic() {
-            return name().toLowerCase(Locale.ENGLISH);
-        }
-
-        @Override public void execute(List<Operand> oprs) {
-            IntData srcVal = oprs.get(0).getValue();
-            Operand dest = oprs.get(1);
-            dest.setValue(srcVal);
-            context.flagN.set( srcVal.isNegValue() );
-            context.flagZ.set( srcVal.isZeroValue() );
-            context.flagV.clear();
-        }
+enum MovzExec implements CodeExec {
+    MovzExec;
+    @Override
+    public void execute(List<Operand> oprs, Context context) {
+        IntData srcVal = oprs.get(0).getValue();
+        Operand dest = oprs.get(1);
+        IntData setVal = new IntData(srcVal.uint(), dest.dataType);
+        dest.setValue(setVal);
+        context.flagN.clear();
+        context.flagZ.set( setVal.isZeroValue() );
+        context.flagV.clear();
+        context.flagC.clear();
     }
+}
 
-    enum Movz implements ICode {
-        MOVZBW (0x9b, B,W), MOVZBL (0x9a, B,L),
-        MOVZWL (0x3c, W,L);
-
-        private final int bin;
-        private final DataType[] operands;
-
-        private Movz(int bin, DataType... oprs) {
-            this.bin = bin;
-            this.operands = oprs;
-        }
-
-        @Override public int bin() {
-            return bin;
-        }
-
-        @Override public DataType[] operands() {
-            return operands;
-        }
-
-        @Override public String mnemonic() {
-            return name().toLowerCase(Locale.ENGLISH);
-        }
-
-        @Override public void execute(List<Operand> oprs) {
-            IntData srcVal = oprs.get(0).getValue();
-            IntData setVal = new IntData(srcVal.uint(), operands[1]);
-            Operand dest = oprs.get(1);
-            dest.setValue(setVal);
-            context.flagN.clear();
-            context.flagZ.set( setVal.isZeroValue() );
-            context.flagV.clear();
-            context.flagC.clear();
-        }
+enum PushExec implements CodeExec {
+    PushExec;
+    @Override
+    public void execute(List<Operand> oprs, Context context) {
+        IntData srcVal = oprs.get(0).getValue();
+        context.push(srcVal);
+        context.flagN.set( srcVal.isNegValue() );
+        context.flagZ.set( srcVal.isZeroValue() );
+        context.flagV.clear();
     }
+}
 
-    enum Push implements ICode {
-        PUSHL (0xdd, L);
-
-        private final int bin;
-        private final DataType[] operands;
-
-        private Push(int bin, DataType... oprs) {
-            this.bin = bin;
-            this.operands = oprs;
-        }
-
-        @Override public int bin() {
-            return bin;
-        }
-
-        @Override public DataType[] operands() {
-            return operands;
-        }
-
-        @Override public String mnemonic() {
-            return name().toLowerCase(Locale.ENGLISH);
-        }
-
-        @Override public void execute(List<Operand> oprs) {
-            IntData srcVal = oprs.get(0).getValue();
-            context.push(srcVal);
-            context.flagN.set( srcVal.isNegValue() );
-            context.flagZ.set( srcVal.isZeroValue() );
-            context.flagV.clear();
-        }
+enum MovaExec implements CodeExec {
+    MovaExec;
+    @Override
+    public void execute(List<Operand> oprs, Context context) {
+        IntData addr = new IntData( ((Address)oprs.get(0)).getAddress() );
+        Operand dest = oprs.get(1);
+        dest.setValue(addr);
+        context.flagN.set( addr.isNegValue() );
+        context.flagZ.set( addr.isZeroValue() );
+        context.flagV.clear();
     }
+}
 
-    enum MovA implements ICode {
-        MOVAB (0x9e, B,L), MOVAW (0x3e, W,L),
-        MOVAL (0xde, L,L), MOVAQ (0x7e, Q,L),
-        MOVAO (0x7efd, O,L);
-
-        private final int bin;
-        private final DataType[] operands;
-
-        private MovA(int bin, DataType... oprs) {
-            this.bin = bin;
-            this.operands = oprs;
-        }
-
-        @Override public int bin() {
-            return bin;
-        }
-
-        @Override public DataType[] operands() {
-            return operands;
-        }
-
-        @Override public String mnemonic() {
-            return name().toLowerCase(Locale.ENGLISH);
-        }
-
-        @Override public void execute(List<Operand> oprs) {
-            IntData addr = new IntData( ((Address)oprs.get(0)).getAddress() );
-            Operand dest = oprs.get(1);
-            dest.setValue(addr);
-            context.flagN.set( addr.isNegValue() );
-            context.flagZ.set( addr.isZeroValue() );
-            context.flagV.clear();
-        }
+enum PushaExec implements CodeExec {
+    PushaExec;
+    @Override
+    public void execute(List<Operand> oprs, Context context) {
+        IntData addr = new IntData( ((Address)oprs.get(0)).getAddress() );
+        context.push(addr);
+        context.flagN.set( addr.isNegValue() );
+        context.flagZ.set( addr.isZeroValue() );
+        context.flagV.clear();
     }
+}
 
-    enum PushA implements ICode {
-        PUSHAB (0x9f, B), PUSHAW (0x3f, W),
-        PUSHAL (0xdf, L),
-        PUSHAQ (0x7f, Q), PUSHAO (0x7ffd, O);
-
-        private final int bin;
-        private final DataType[] operands;
-
-        private PushA(int bin, DataType... oprs) {
-            this.bin = bin;
-            this.operands = oprs;
-        }
-
-        @Override public int bin() {
-            return bin;
-        }
-
-        @Override public DataType[] operands() {
-            return operands;
-        }
-
-        @Override public String mnemonic() {
-            return name().toLowerCase(Locale.ENGLISH);
-        }
-
-        @Override public void execute(List<Operand> oprs) {
-            IntData addr = new IntData( ((Address)oprs.get(0)).getAddress() );
-            context.push(addr);
-            context.flagN.set( addr.isNegValue() );
-            context.flagZ.set( addr.isZeroValue() );
-            context.flagV.clear();
-        }
+enum McomExec implements CodeExec {
+    McomExec;
+    @Override
+    public void execute(List<Operand> oprs, Context context) {
+        IntData srcVal = oprs.get(0).getValue();
+        Operand dest = oprs.get(1);
+        IntData com = IntData.bitInvert(srcVal);
+        dest.setValue(com);
+        context.flagN.set( com.isNegValue() );
+        context.flagZ.set( com.isZeroValue() );
+        context.flagV.clear();
+        context.flagC.clear();
     }
+}
 
-    enum Mcom implements ICode {
-        MCOMB (0x92, B,B), MCOMW (0xb2, W,W),
-        MCOML (0xd2, L,L);
-
-        private final int bin;
-        private final DataType[] operands;
-
-        private Mcom(int bin, DataType... oprs) {
-            this.bin = bin;
-            this.operands = oprs;
-        }
-
-        @Override public int bin() {
-            return bin;
-        }
-
-        @Override public DataType[] operands() {
-            return operands;
-        }
-
-        @Override public String mnemonic() {
-            return name().toLowerCase(Locale.ENGLISH);
-        }
-
-        @Override public void execute(List<Operand> oprs) {
-            IntData srcVal = oprs.get(0).getValue();
-            Operand dest = oprs.get(1);
-            IntData com = IntData.bitInvert(srcVal);
-            dest.setValue(com);
-            context.flagN.set( com.isNegValue() );
-            context.flagZ.set( com.isZeroValue() );
-            context.flagV.clear();
-            context.flagC.clear();
-        }
+enum MnegExec implements CodeExec {
+    MnegExec;
+    @Override
+    public void execute(List<Operand> oprs, Context context) {
+        IntData srcVal = oprs.get(0).getValue();
+        Operand dest = oprs.get(1);
+        IntData neg = Calculator.sub(new IntData(0, srcVal.dataType()), srcVal, context);
+        dest.setValue(neg);
     }
+}
 
-    enum Mneg implements ICode {
-        MNEGB (0x8e, B,B), MNEGW (0xae, W,W),
-        MNEGL (0xce, L,L);
+enum FmnegExec implements CodeExec {
+    FmnegExec;
+    @Override
+    public void execute(List<Operand> oprs, Context context) {
+        IntData srcVal = oprs.get(0).getValue();
 
-        private final int bin;
-        private final DataType[] operands;
+        assert !srcVal.isMinusZeroFloatValue() : "Reserved operand fault";
 
-        private Mneg(int bin, DataType... oprs) {
-            this.bin = bin;
-            this.operands = oprs;
+        IntData neg;
+        if (srcVal.isZeroValue()) {
+            neg = srcVal;
+        } else {
+            neg = IntData.negativeFloat(srcVal);
         }
-
-        @Override public int bin() {
-            return bin;
-        }
-
-        @Override public DataType[] operands() {
-            return operands;
-        }
-
-        @Override public String mnemonic() {
-            return name().toLowerCase(Locale.ENGLISH);
-        }
-
-        @Override public void execute(List<Operand> oprs) {
-            IntData srcVal = oprs.get(0).getValue();
-            Operand dest = oprs.get(1);
-            IntData neg = Calculator.sub(new IntData(0, srcVal.dataType()), srcVal, context);
-            dest.setValue(neg);
-        }
+        Operand dest = oprs.get(1);
+        dest.setValue(neg);
+        context.flagN.set( neg.isNegValue() );
+        context.flagZ.set( neg.isZeroValue() );
+        context.flagV.clear();
+        context.flagC.clear();
     }
+}
 
-    enum FMneg implements ICode {
-        MNEGF (0x52, F,F),   MNEGD (0x72, D,D),
-        MNEGG (0x52fd, G,G), MNEGH (0x72fd, H,H);
+enum AddExec implements CodeExec {
+    AddExec;
+    @Override
+    public void execute(List<Operand> oprs, Context context) {
+        IntData arg1 = oprs.get(1).getValue();
+        IntData arg2 = oprs.get(0).getValue();
+        Operand dest = oprs.size() == 3 ? oprs.get(2) : oprs.get(1);
+        IntData sum = Calculator.add(arg1, arg2, context);
+        dest.setValue(sum);
+    }
+}
 
-        private final int bin;
-        private final DataType[] operands;
+enum SubExec implements CodeExec {
+    SubExec;
+    @Override
+    public void execute(List<Operand> oprs, Context context) {
+        IntData arg1 = oprs.get(1).getValue();
+        IntData arg2 = oprs.get(0).getValue();
+        Operand dest = oprs.size() == 3 ? oprs.get(2) : oprs.get(1);
+        IntData diff = Calculator.sub(arg1, arg2, context);
+        dest.setValue(diff);
+    }
+}
 
-        private FMneg(int bin, DataType... oprs) {
-            this.bin = bin;
-            this.operands = oprs;
-        }
+enum MulExec implements CodeExec {
+    MulExec;
+    @Override
+    public void execute(List<Operand> oprs, Context context) {
+        IntData arg1 = oprs.get(0).getValue();
+        IntData arg2 = oprs.get(1).getValue();
+        Operand dest = oprs.size() == 3 ? oprs.get(2) : oprs.get(1);
+        IntData prod = Calculator.mul(arg1, arg2, context);
+        dest.setValue(prod);
+    }
+}
 
-        @Override public int bin() {
-            return bin;
-        }
+enum DivExec implements CodeExec {
+    DivExec;
+    @Override
+    public void execute(List<Operand> oprs, Context context) {
+        IntData divisor = oprs.get(0).getValue();
+        IntData dividend = oprs.get(1).getValue();
+        Operand dest = oprs.size() == 3 ? oprs.get(2) : oprs.get(1);
+        IntData quo = Calculator.div(dividend, divisor, context);
 
-        @Override public DataType[] operands() {
-            return operands;
-        }
-
-        @Override public String mnemonic() {
-            return name().toLowerCase(Locale.ENGLISH);
-        }
-
-        @Override public void execute(List<Operand> oprs) {
-            IntData srcVal = oprs.get(0).getValue();
-
-            assert !srcVal.isMinusZeroFloatValue() : "Reserved operand fault";
-
-            IntData neg;
-            if (srcVal.isZeroValue()) {
-                neg = srcVal;
-            } else {
-                neg = IntData.negativeFloat(srcVal);
+        if (quo != null) {
+            dest.setValue(quo);
+        } else {
+            if (oprs.size() == 3) {
+                dest.setValue(dividend);
             }
-            Operand dest = oprs.get(1);
-            dest.setValue(neg);
-            context.flagN.set( neg.isNegValue() );
-            context.flagZ.set( neg.isZeroValue() );
-            context.flagV.clear();
+            context.flagN.set( dest.getValue().isNegValue() );
+            context.flagZ.set( dest.getValue().isZeroValue() );
             context.flagC.clear();
         }
     }
+}
 
-    enum Add implements ICode {
-        ADDB2 (0x80, B,B), ADDB3 (0x81, B,B,B),
-        ADDW2 (0xa0, W,W), ADDW3 (0xa1, W,W,W),
-        ADDL2 (0xc0, L,L), ADDL3 (0xc1, L,L,L);
-
-        private final int bin;
-        private final DataType[] operands;
-
-        private Add(int bin, DataType... oprs) {
-            this.bin = bin;
-            this.operands = oprs;
-        }
-
-        @Override public int bin() {
-            return bin;
-        }
-
-        @Override public DataType[] operands() {
-            return operands;
-        }
-
-        @Override public String mnemonic() {
-            return name().toLowerCase(Locale.ENGLISH);
-        }
-
-        @Override public void execute(List<Operand> oprs) {
-            IntData arg1 = oprs.get(1).getValue();
-            IntData arg2 = oprs.get(0).getValue();
-            Operand dest = oprs.size() == 3 ? oprs.get(2) : oprs.get(1);
-            IntData sum = Calculator.add(arg1, arg2, context);
-            dest.setValue(sum);
-        }
+enum BitExec implements CodeExec {
+    BitExec;
+    @Override
+    public void execute(List<Operand> oprs, Context context) {
+        IntData arg1 = oprs.get(1).getValue();
+        IntData arg2 = oprs.get(0).getValue();
+        IntData testVal = new IntData(arg1.uint() & arg2.uint(), arg1.dataType());
+        context.flagN.set( testVal.isNegValue() );
+        context.flagZ.set( testVal.isZeroValue() );
+        context.flagV.clear();
     }
+}
 
-    /*enum FAdd implements ICode {
-      ADDF2 (0x40, F,F),   ADDF3 (0x41, F,F,F),
-      ADDD2 (0x60, D,D),   ADDD3 (0x61, D,D,D),
-      ADDG2 (0x40fd, G,G), ADDG3 (0x41fd, G,G,G),
-      ADDH2 (0x60fd, H,H), ADDH3 (0x61fd, H,H,H);
-
-      private final int bin;
-      private final DataType[] operands;
-
-      private FAdd(int bin, DataType... oprs) {
-      this.bin = bin;
-      this.operands = oprs;
-      }
-
-      @Override public int bin() {
-      return bin;
-      }
-
-      @Override public DataType[] operands() {
-      return operands;
-      }
-
-      @Override public String mnemonic() {
-      return name().toLowerCase(Locale.ENGLISH);
-      }
-
-      @Override public void execute(List<Operand> oprs) {
-      }
-      }*/
-
-    enum Sub implements ICode {
-        SUBB2 (0x82, B,B), SUBB3 (0x83, B,B,B),
-        SUBW2 (0xa2, W,W), SUBW3 (0xa3, W,W,W),
-        SUBL2 (0xc2, L,L), SUBL3 (0xc3, L,L,L);
-
-        private final int bin;
-        private final DataType[] operands;
-
-        private Sub(int bin, DataType... oprs) {
-            this.bin = bin;
-            this.operands = oprs;
-        }
-
-        @Override public int bin() {
-            return bin;
-        }
-
-        @Override public DataType[] operands() {
-            return operands;
-        }
-
-        @Override public String mnemonic() {
-            return name().toLowerCase(Locale.ENGLISH);
-        }
-
-        @Override public void execute(List<Operand> oprs) {
-            IntData arg1 = oprs.get(1).getValue();
-            IntData arg2 = oprs.get(0).getValue();
-            Operand dest = oprs.size() == 3 ? oprs.get(2) : oprs.get(1);
-            IntData diff = Calculator.sub(arg1, arg2, context);
-            dest.setValue(diff);
-        }
+enum BisExec implements CodeExec {
+    BisExec;
+    @Override
+    public void execute(List<Operand> oprs, Context context) {
+        IntData arg1 = oprs.get(1).getValue();
+        IntData arg2 = oprs.get(0).getValue();
+        IntData bisVal = new IntData(arg1.uint() | arg2.uint(), arg1.dataType());
+        Operand dest = oprs.size() == 3 ? oprs.get(2) : oprs.get(1);
+        dest.setValue(bisVal);
+        context.flagN.set( bisVal.isNegValue() );
+        context.flagZ.set( bisVal.isZeroValue() );
+        context.flagV.clear();
     }
+}
 
-    /*enum FSub implements ICode {
-      SUBF2 (0x42, F,F),   SUBF3 (0x43, F,F,F),
-      SUBD2 (0x62, D,D),   SUBD3 (0x63, D,D,D),
-      SUBG2 (0x42fd, G,G), SUBG3 (0x43fd, G,G,G),
-      SUBH2 (0x62fd, H,H), SUBH3 (0x63fd, H,H,H);
-
-      private final int bin;
-      private final DataType[] operands;
-
-      private FSub(int bin, DataType... oprs) {
-      this.bin = bin;
-      this.operands = oprs;
-      }
-
-      @Override public int bin() {
-      return bin;
-      }
-
-      @Override public DataType[] operands() {
-      return operands;
-      }
-
-      @Override public String mnemonic() {
-      return name().toLowerCase(Locale.ENGLISH);
-      }
-
-      @Override public void execute(List<Operand> oprs) {
-      }
-      }*/
-
-    enum Mul implements ICode {
-        MULB2 (0x84, B,B), MULB3 (0x85, B,B,B),
-        MULW2 (0xa4, W,W), MULW3 (0xa5, W,W,W),
-        MULL2 (0xc4, L,L), MULL3 (0xc5, L,L,L); 
-
-        private final int bin;
-        private final DataType[] operands;
-
-        private Mul(int bin, DataType... oprs) {
-            this.bin = bin;
-            this.operands = oprs;
-        }
-
-        @Override public int bin() {
-            return bin;
-        }
-
-        @Override public DataType[] operands() {
-            return operands;
-        }
-
-        @Override public String mnemonic() {
-            return name().toLowerCase(Locale.ENGLISH);
-        }
-
-        @Override public void execute(List<Operand> oprs) {
-            IntData arg1 = oprs.get(0).getValue();
-            IntData arg2 = oprs.get(1).getValue();
-            Operand dest = oprs.size() == 3 ? oprs.get(2) : oprs.get(1);
-            IntData prod = Calculator.mul(arg1, arg2, context);
-            dest.setValue(prod);
-        }
+enum BicExec implements CodeExec {
+    BicExec;
+    @Override
+    public void execute(List<Operand> oprs, Context context) {
+        IntData arg1 = oprs.get(1).getValue();
+        IntData arg2 = oprs.get(0).getValue();
+        IntData bicVal = new IntData(arg1.uint() & ~arg2.uint(), arg1.dataType());
+        Operand dest = oprs.size() == 3 ? oprs.get(2) : oprs.get(1);
+        dest.setValue(bicVal);
+        context.flagN.set( bicVal.isNegValue() );
+        context.flagZ.set( bicVal.isZeroValue() );
+        context.flagV.clear();
     }
+}
 
-    enum Div implements ICode {
-        DIVB2 (0x86, B,B), DIVB3 (0x87, B,B,B),
-        DIVW2 (0xa6, W,W), DIVW3 (0xa7, W,W,W),
-        DIVL2 (0xc6, L,L), DIVL3 (0xc7, L,L,L);
-
-        private final int bin;
-        private final DataType[] operands;
-
-        private Div(int bin, DataType... oprs) {
-            this.bin = bin;
-            this.operands = oprs;
-        }
-
-        @Override public int bin() {
-            return bin;
-        }
-
-        @Override public DataType[] operands() {
-            return operands;
-        }
-
-        @Override public String mnemonic() {
-            return name().toLowerCase(Locale.ENGLISH);
-        }
-
-        @Override public void execute(List<Operand> oprs) {
-            IntData divisor = oprs.get(0).getValue();
-            IntData dividend = oprs.get(1).getValue();
-            Operand dest = oprs.size() == 3 ? oprs.get(2) : oprs.get(1);
-            IntData quo = Calculator.div(dividend, divisor, context);
-
-            if (quo != null) {
-                dest.setValue(quo);
-            } else {
-                if (oprs.size() == 3) {
-                    dest.setValue(dividend);
-                }
-                context.flagN.set( dest.getValue().isNegValue() );
-                context.flagZ.set( dest.getValue().isZeroValue() );
-                context.flagC.clear();
-            }
-        }
+enum XorExec implements CodeExec {
+    XorExec;
+    @Override
+    public void execute(List<Operand> oprs, Context context) {
+        IntData arg1 = oprs.get(1).getValue();
+        IntData arg2 = oprs.get(0).getValue();
+        IntData xorVal = new IntData(arg1.uint() ^  arg2.uint(), arg1.dataType());
+        Operand dest = oprs.size() == 3 ? oprs.get(2) : oprs.get(1);
+        dest.setValue(xorVal);
+        context.flagN.set( xorVal.isNegValue() );
+        context.flagZ.set( xorVal.isZeroValue() );
+        context.flagV.clear();
     }
+}
 
-    enum Bit implements ICode {
-        BITB (0x93, B,B), BITW (0xb3, W,W),
-        BITL (0xd3, L,L);
-
-        private final int bin;
-        private final DataType[] operands;
-
-        private Bit(int bin, DataType... oprs) {
-            this.bin = bin;
-            this.operands = oprs;
-        }
-
-        @Override public int bin() {
-            return bin;
-        }
-
-        @Override public DataType[] operands() {
-            return operands;
-        }
-
-        @Override public String mnemonic() {
-            return name().toLowerCase(Locale.ENGLISH);
-        }
-
-        @Override public void execute(List<Operand> oprs) {
-            IntData arg1 = oprs.get(1).getValue();
-            IntData arg2 = oprs.get(0).getValue();
-            IntData testVal = new IntData(arg1.uint() & arg2.uint(), arg1.dataType());
-            context.flagN.set( testVal.isNegValue() );
-            context.flagZ.set( testVal.isZeroValue() );
-            context.flagV.clear();
-        }
+enum ClrExec implements CodeExec {
+    ClrExec;
+    @Override
+    public void execute(List<Operand> oprs, Context context) {
+        Operand dest = oprs.get(0);
+        IntData zero = new IntData(0, dest.dataType);
+        dest.setValue(zero);
+        context.flagN.clear();
+        context.flagZ.set();
+        context.flagV.clear();
     }
+}
 
-    enum Bis implements ICode {
-        BISB2 (0x88, B,B), BISB3 (0x89, B,B,B),
-        BISW2 (0xa8, W,W), BISW3 (0xa9, W,W,W),
-        BISL2 (0xc8, L,L), BISL3 (0xc9, L,L,L);
-
-        private final int bin;
-        private final DataType[] operands;
-
-        private Bis(int bin, DataType... oprs) {
-            this.bin = bin;
-            this.operands = oprs;
-        }
-
-        @Override public int bin() {
-            return bin;
-        }
-
-        @Override public DataType[] operands() {
-            return operands;
-        }
-
-        @Override public String mnemonic() {
-            return name().toLowerCase(Locale.ENGLISH);
-        }
-
-        @Override public void execute(List<Operand> oprs) {
-            IntData arg1 = oprs.get(1).getValue();
-            IntData arg2 = oprs.get(0).getValue();
-            IntData bisVal = new IntData(arg1.uint() | arg2.uint(), arg1.dataType());
-            Operand dest = oprs.size() == 3 ? oprs.get(2) : oprs.get(1);
-            dest.setValue(bisVal);
-            context.flagN.set( bisVal.isNegValue() );
-            context.flagZ.set( bisVal.isZeroValue() );
-            context.flagV.clear();
-        }
+enum IncExec implements CodeExec {
+    IncExec;
+    @Override
+    public void execute(List<Operand> oprs, Context context) {
+        IntData arg = oprs.get(0).getValue();
+        Operand dest = oprs.get(0);
+        IntData sum = Calculator.add(arg, new IntData(1, arg.dataType()), context);
+        dest.setValue(sum);
     }
+}
 
-    enum Bic implements ICode {
-        BICB2 (0x8a, B,B), BICB3 (0x8b, B,B,B),
-        BICW2 (0xaa, W,W), BICW3 (0xab, W,W,W),
-        BICL2 (0xca, L,L), BICL3 (0xcb, L,L,L);
-
-        private final int bin;
-        private final DataType[] operands;
-
-        private Bic(int bin, DataType... oprs) {
-            this.bin = bin;
-            this.operands = oprs;
-        }
-
-        @Override public int bin() {
-            return bin;
-        }
-
-        @Override public DataType[] operands() {
-            return operands;
-        }
-
-        @Override public String mnemonic() {
-            return name().toLowerCase(Locale.ENGLISH);
-        }
-
-        @Override public void execute(List<Operand> oprs) {
-            IntData arg1 = oprs.get(1).getValue();
-            IntData arg2 = oprs.get(0).getValue();
-            IntData bicVal = new IntData(arg1.uint() & ~arg2.uint(), arg1.dataType());
-            Operand dest = oprs.size() == 3 ? oprs.get(2) : oprs.get(1);
-            dest.setValue(bicVal);
-            context.flagN.set( bicVal.isNegValue() );
-            context.flagZ.set( bicVal.isZeroValue() );
-            context.flagV.clear();
-        }
+enum DecExec implements CodeExec {
+    DecExec;
+    @Override
+    public void execute(List<Operand> oprs, Context context) {
+        IntData arg = oprs.get(0).getValue();
+        Operand dest = oprs.get(0);
+        IntData diff = Calculator.sub(arg, new IntData(1, arg.dataType()), context);
+        dest.setValue(diff);
     }
+}
 
-    enum Xor implements ICode {
-        XORB2 (0x8c, B,B), XORB3 (0x8d, B,B,B),
-        XORW2 (0xac, W,W), XORW3 (0xad, W,W,W),
-        XORL2 (0xcc, L,L), XORL3 (0xcd, L,L,L);
-
-        private final int bin;
-        private final DataType[] operands;
-
-        private Xor(int bin, DataType... oprs) {
-            this.bin = bin;
-            this.operands = oprs;
-        }
-
-        @Override public int bin() {
-            return bin;
-        }
-
-        @Override public DataType[] operands() {
-            return operands;
-        }
-
-        @Override public String mnemonic() {
-            return name().toLowerCase(Locale.ENGLISH);
-        }
-
-        @Override public void execute(List<Operand> oprs) {
-            IntData arg1 = oprs.get(1).getValue();
-            IntData arg2 = oprs.get(0).getValue();
-            IntData xorVal = new IntData(arg1.uint() ^  arg2.uint(), arg1.dataType());
-            Operand dest = oprs.size() == 3 ? oprs.get(2) : oprs.get(1);
-            dest.setValue(xorVal);
-            context.flagN.set( xorVal.isNegValue() );
-            context.flagZ.set( xorVal.isZeroValue() );
-            context.flagV.clear();
-        }
-    }
-
-    enum Clr implements ICode {
-        CLRB (0x94, B), CLRW (0xb4, W),
-        CLRL (0xd4, L),
-        CLRQ (0x7c, Q), CLRO (0x7cfd, O);
-
-        private final int bin;
-        private final DataType[] operands;
-
-        private Clr(int bin, DataType... oprs) {
-            this.bin = bin;
-            this.operands = oprs;
-        }
-
-        @Override public int bin() {
-            return bin;
-        }
-
-        @Override public DataType[] operands() {
-            return operands;
-        }
-
-        @Override public String mnemonic() {
-            return name().toLowerCase(Locale.ENGLISH);
-        }
-
-        @Override public void execute(List<Operand> oprs) {
-            Operand dest = oprs.get(0);
-            IntData zero = new IntData(0, operands[0]);
-            dest.setValue(zero);
-            context.flagN.clear();
-            context.flagZ.set();
-            context.flagV.clear();
-        }
-    }
-
-    enum Inc implements ICode {
-        INCB (0x96, B), INCW (0xb6, W),
-        INCL (0xd6, L);
-
-        private final int bin;
-        private final DataType[] operands;
-
-        private Inc(int bin, DataType... oprs) {
-            this.bin = bin;
-            this.operands = oprs;
-        }
-
-        @Override public int bin() {
-            return bin;
-        }
-
-        @Override public DataType[] operands() {
-            return operands;
-        }
-
-        @Override public String mnemonic() {
-            return name().toLowerCase(Locale.ENGLISH);
-        }
-
-        @Override public void execute(List<Operand> oprs) {
-            IntData arg = oprs.get(0).getValue();
-            Operand dest = oprs.get(0);
-            IntData sum = Calculator.add(arg, new IntData(1, arg.dataType()), context);
-            dest.setValue(sum);
-        }
-    }
-
-    enum Dec implements ICode {
-        DECB (0x97, B), DECW (0xb7, W),
-        DECL (0xd7, L);
-
-        private final int bin;
-        private final DataType[] operands;
-
-        private Dec(int bin, DataType... oprs) {
-            this.bin = bin;
-            this.operands = oprs;
-        }
-
-        @Override public int bin() {
-            return bin;
-        }
-
-        @Override public DataType[] operands() {
-            return operands;
-        }
-
-        @Override public String mnemonic() {
-            return name().toLowerCase(Locale.ENGLISH);
-        }
-
-        @Override public void execute(List<Operand> oprs) {
-            IntData arg = oprs.get(0).getValue();
-            Operand dest = oprs.get(0);
-            IntData diff = Calculator.sub(arg, new IntData(1, arg.dataType()), context);
-            dest.setValue(diff);
-        }
-    }
-
-    enum Ash implements ICode {
-        ASHL (0x78, B,L,L), ASHQ (0x79, B,Q,Q);
-
-        private final int bin;
-        private final DataType[] operands;
-
-        private Ash(int bin, DataType... oprs) {
-            this.bin = bin;
-            this.operands = oprs;
-        }
-
-        @Override public int bin() {
-            return bin;
-        }
-
-        @Override public DataType[] operands() {
-            return operands;
-        }
-
-        @Override public String mnemonic() {
-            return name().toLowerCase(Locale.ENGLISH);
-        }
-
-        @Override public void execute(List<Operand> oprs) {
-            int count = oprs.get(0).getValue().sint();
-            IntData srcVal = oprs.get(1).getValue();
-            long src = srcVal.slong();
-            Operand dest = oprs.get(2);
-
-            long val;
-            if (count >= 0) {
-                val = count > maxCount() ? 0 : src << count;
-            } else {
-                int rcount = count < minCount() ? -minCount() : -count;
-                val = src >> rcount;
-            }
-            IntData shifted = new IntData(val, srcVal.dataType());
-
-            dest.setValue(shifted);
-            context.flagN.set( shifted.isNegValue() );
-            context.flagZ.set( shifted.isZeroValue() );
-            context.flagV.set( srcVal.isNegValue() != shifted.isNegValue() );
-            context.flagC.clear();
-        }
-
-        private int maxCount() {
-            if (ordinal() == ASHL.ordinal()) {
+enum AshExec implements CodeExec {
+    AshlExec {
+        @Override
+        protected int maxCount() {
                 return 31;
-            } else {
-                return 63;
-            }
         }
-
-        private int minCount() {
-            if (ordinal() == ASHL.ordinal()) {
+        @Override
+        protected int minCount() {
                 return -31;
-            } else {
+        }
+    },
+    AshqExec {
+        @Override
+        protected int maxCount() {
+                return 63;
+        }
+        @Override
+        protected int minCount() {
                 return -63;
-            }
         }
+    };
+
+    @Override
+    public void execute(List<Operand> oprs, Context context) {
+        int count = oprs.get(0).getValue().sint();
+        IntData srcVal = oprs.get(1).getValue();
+        long src = srcVal.slong();
+        Operand dest = oprs.get(2);
+
+        long val;
+        if (count >= 0) {
+            val = count > maxCount() ? 0 : src << count;
+        } else {
+            int rcount = count < minCount() ? -minCount() : -count;
+            val = src >> rcount;
+        }
+        IntData shifted = new IntData(val, srcVal.dataType());
+
+        dest.setValue(shifted);
+        context.flagN.set( shifted.isNegValue() );
+        context.flagZ.set( shifted.isZeroValue() );
+        context.flagV.set( srcVal.isNegValue() != shifted.isNegValue() );
+        context.flagC.clear();
     }
 
-    enum Tst implements ICode {
-        TSTB (0x95, B),   TSTW (0xb5, W),
-        TSTL (0xd5, L),
-        TSTF (0x53, F),   TSTD (0x73, D),
-        TSTG (0x53fd, G), TSTH (0x73fd, H);
+    protected abstract int maxCount();
+    protected abstract int minCount();
+}
 
-        private final int bin;
-        private final DataType[] operands;
-
-        private Tst(int bin, DataType... oprs) {
-            this.bin = bin;
-            this.operands = oprs;
-        }
-
-        @Override public int bin() {
-            return bin;
-        }
-
-        @Override public DataType[] operands() {
-            return operands;
-        }
-
-        @Override public String mnemonic() {
-            return name().toLowerCase(Locale.ENGLISH);
-        }
-
-        @Override public void execute(List<Operand> oprs) {
-            IntData srcVal = oprs.get(0).getValue();
-            context.flagN.set( srcVal.isNegValue() );
-            context.flagZ.set( srcVal.isZeroValue() );
-            context.flagV.clear();
-            context.flagC.clear();
-        }
+enum TstExec implements CodeExec {
+    TstExec;
+    @Override
+    public void execute(List<Operand> oprs, Context context) {
+        IntData srcVal = oprs.get(0).getValue();
+        context.flagN.set( srcVal.isNegValue() );
+        context.flagZ.set( srcVal.isZeroValue() );
+        context.flagV.clear();
+        context.flagC.clear();
     }
+}
 
-    enum Cmp implements ICode {
-        CMPB (0x91, B,B),   CMPW (0xb1, W,W),
-        CMPL (0xd1, L,L);
-
-        private final int bin;
-        private final DataType[] operands;
-
-        private Cmp(int bin, DataType... oprs) {
-            this.bin = bin;
-            this.operands = oprs;
-        }
-
-        @Override public int bin() {
-            return bin;
-        }
-
-        @Override public DataType[] operands() {
-            return operands;
-        }
-
-        @Override public String mnemonic() {
-            return name().toLowerCase(Locale.ENGLISH);
-        }
-
-        @Override public void execute(List<Operand> oprs) {
-            IntData lhs = oprs.get(0).getValue();
-            IntData rhs = oprs.get(1).getValue();
-            context.flagN.set( lhs.sint() < rhs.sint() );
-            context.flagZ.set( lhs.sint() == rhs.sint() );
-            context.flagV.clear();
-            context.flagC.set( lhs.uint() < rhs.uint() );
-        }
+enum CmpExec implements CodeExec {
+    CmpExec;
+    @Override
+    public void execute(List<Operand> oprs, Context context) {
+        IntData lhs = oprs.get(0).getValue();
+        IntData rhs = oprs.get(1).getValue();
+        context.flagN.set( lhs.sint() < rhs.sint() );
+        context.flagZ.set( lhs.sint() == rhs.sint() );
+        context.flagV.clear();
+        context.flagC.set( lhs.uint() < rhs.uint() );
     }
+}
 
-    /*enum FCmp implements ICode {
-      CMPF (0x51, F,F),   CMPD (0x71, D,D),
-      CMPG (0x51fd, G,G), CMPH (0x71fd, H,H);
-
-      private final int bin;
-      private final DataType[] operands;
-
-      private FCmp(int bin, DataType... oprs) {
-      this.bin = bin;
-      this.operands = oprs;
-      }
-
-      @Override public int bin() {
-      return bin;
-      }
-
-      @Override public DataType[] operands() {
-      return operands;
-      }
-
-      @Override public String mnemonic() {
-      return name().toLowerCase(Locale.ENGLISH);
-      }
-
-      @Override public void execute(List<Operand> oprs) {
-      }
-      }*/
-
-    enum Ext implements ICode {
-        EXTV (0xee, L,B,B,L), EXTZV (0xef, L,B,B,L);
-
-        private final int bin;
-        private final DataType[] operands;
-
-        private Ext(int bin, DataType... oprs) {
-            this.bin = bin;
-            this.operands = oprs;
+enum ExtExec implements CodeExec {
+    ExtvExec {
+        @Override
+        protected boolean isSignExt() {
+            return true;
         }
-
-        @Override public int bin() {
-            return bin;
+    },
+    ExtzvExec {
+        @Override
+        protected boolean isSignExt() {
+            return false;
         }
+    };
 
-        @Override public DataType[] operands() {
-            return operands;
+    @Override
+    public void execute(List<Operand> oprs, Context context) {
+        int pos = oprs.get(0).getValue().uint();
+        int size = oprs.get(1).getValue().uint();
+        Operand base = oprs.get(2);
+        Operand dest = oprs.get(3);
+
+        assert size <= 32 : "Reserved operand fault";
+
+        IntData extVal;
+        if (size == 0) {
+            extVal = new IntData(0);
         }
-
-        @Override public String mnemonic() {
-            return name().toLowerCase(Locale.ENGLISH);
-        }
-
-        @Override public void execute(List<Operand> oprs) {
-            int pos = oprs.get(0).getValue().uint();
-            int size = oprs.get(1).getValue().uint();
-            Operand base = oprs.get(2);
-            Operand dest = oprs.get(3);
-
-            assert size <= 32 : "Reserved operand fault";
-
-            IntData extVal;
-            if (size == 0) {
-                extVal = new IntData(0);
-            }
-            else {
-                long srcVal;
-                if (base instanceof Register) {
-                    assert (pos & 0xffffffffL) <= 31 : "Reserved operand fault";
-
-                    int regNum = ((Register)base).regNum;
-                    srcVal = ((long)context.register[regNum + 1] << 32) | context.register[regNum];
-                } else {
-                    int addr = ((Address)base).getAddress() + (pos >>> 5);
-                    pos = pos & 31;
-                    srcVal =
-                        ((long)context.memory.load(addr + 4, DataType.L).uint() << 32) |
-                        context.memory.load(addr, DataType.L).uint();
-                }
-
-                int lSpace = 64 - (pos + size);
-                int eVal = (int)(isSignExt() ?
-                                 srcVal << lSpace >> (lSpace + pos) :
-                                 srcVal << lSpace >>> (lSpace + pos));
-                extVal = new IntData(eVal, DataType.L);
-            }
-
-            dest.setValue(extVal);
-            context.flagN.set( extVal.isNegValue() );
-            context.flagZ.set( extVal.isZeroValue() );
-            context.flagV.clear();
-        }
-
-        private boolean isSignExt() {
-            return ordinal() == EXTV.ordinal();
-        }
-    }
-
-    enum Insv implements ICode {
-        INSV (0xf0, L,L,B,B);
-
-        private final int bin;
-        private final DataType[] operands;
-
-        private Insv(int bin, DataType... oprs) {
-            this.bin = bin;
-            this.operands = oprs;
-        }
-
-        @Override public int bin() {
-            return bin;
-        }
-
-        @Override public DataType[] operands() {
-            return operands;
-        }
-
-        @Override public String mnemonic() {
-            return name().toLowerCase(Locale.ENGLISH);
-        }
-
-        @Override public void execute(List<Operand> oprs) {
-            int size = oprs.get(2).getValue().uint();
-
-            assert size <= 32 : "Reserved operand fault";
-
-            if (size != 0) {
-                int pos = oprs.get(1).getValue().uint();
-                long srcVal = (long)oprs.get(0).getValue().uint() << pos;
-                Operand base = oprs.get(3);
-                if (base instanceof Register) {
-                    assert (pos & 0xffffffffL) <= 31 : "Reserved operand fault";
-
-                    int regNum = ((Register)base).regNum;
-                    long orgVal =
-                        ((long)context.register[regNum + 1] << 32) |
-                        context.register[regNum];
-                    long mask = (~(0xffffffffffffffffL << size)) << pos;
-                    long insVal = (orgVal & ~mask) | (srcVal & mask);
-                    context.setRegisterValue(regNum, new IntData(insVal, DataType.Q));
-                } else {
-                    int addr = ((Address)base).getAddress() + (pos >>> 5);
-                    pos = pos & 31;
-
-                    long orgVal =
-                        ((long)context.memory.load(addr + 4, DataType.L).uint() << 32) |
-                        context.memory.load(addr, DataType.L).uint();
-                    long mask = (~(0xffffffffffffffffL << size)) << pos;
-                    long insVal = (orgVal & ~mask) | (srcVal & mask);
-                    context.memory.store(addr, new IntData(insVal, DataType.Q));
-                }
-            }
-        }
-    }
-
-    enum Jmp implements ICode {
-        JMP (0x17, B);
-
-        private final int bin;
-        private final DataType[] operands;
-
-        private Jmp(int bin, DataType... oprs) {
-            this.bin = bin;
-            this.operands = oprs;
-        }
-
-        @Override public int bin() {
-            return bin;
-        }
-
-        @Override public DataType[] operands() {
-            return operands;
-        }
-
-        @Override public String mnemonic() {
-            return name().toLowerCase(Locale.ENGLISH);
-        }
-
-        @Override public void execute(List<Operand> oprs) {
-            context.register[PC] = ((Address)oprs.get(0)).getAddress();
-        }
-    }
-
-
-    enum Br implements ICode {
-        BRB (0x11, BrB) {
-            @Override public boolean check(Context context) {
-                return true;
-            }
-        },
-        BRW (0x31, BrW) {
-            @Override public boolean check(Context context) {
-                return true;
-            }
-        },
-        BNEQ (0x12, BrB) {
-            @Override public boolean check(Context context) {
-                return !context.flagZ.get();
-            }
-        },
-        BEQL (0x13, BrB) {
-            @Override public boolean check(Context context) {
-                return context.flagZ.get();
-            }
-        },
-        BGTR (0x14, BrB) {
-            @Override public boolean check(Context context) {
-                return !context.flagN.get() && !context.flagZ.get();
-            }
-        },
-        BLEQ (0x15, BrB) {
-            @Override public boolean check(Context context) {
-                return context.flagN.get() || context.flagZ.get();
-            }
-        },
-        BGEQ (0x18, BrB) {
-            @Override public boolean check(Context context) {
-                return !context.flagN.get();
-            }
-        },
-        BLSS (0x19, BrB) {
-            @Override public boolean check(Context context) {
-                return context.flagN.get();
-            }
-        },
-        BGTRU (0x1a, BrB) {
-            @Override public boolean check(Context context) {
-                return !context.flagC.get() && !context.flagZ.get();
-            }
-        },
-        BLEQU (0x1b, BrB) {
-            @Override public boolean check(Context context) {
-                return context.flagC.get() || context.flagZ.get();
-            }
-        },
-        BVC (0x1c, BrB) {
-            @Override public boolean check(Context context) {
-                return !context.flagV.get();
-            }
-        },
-        BVS (0x1d, BrB) {
-            @Override public boolean check(Context context) {
-                return context.flagV.get();
-            }
-        },
-        BCC (0x1e, BrB) {
-            @Override public boolean check(Context context) {
-                return !context.flagC.get();
-            }
-        },
-        BLSSU (0x1f, BrB) {
-            @Override public boolean check(Context context) {
-                return context.flagC.get();
-            }
-        };
-
-        private final int bin;
-        private final DataType[] operands;
-
-        private Br(int bin, DataType... oprs) {
-            this.bin = bin;
-            this.operands = oprs;
-        }
-
-        @Override public int bin() {
-            return bin;
-        }
-
-        @Override public DataType[] operands() {
-            return operands;
-        }
-
-        @Override public String mnemonic() {
-            return name().toLowerCase(Locale.ENGLISH);
-        }
-
-        @Override public void execute(List<Operand> oprs) {
-            if (check(context)) {
-                context.register[PC] = ((Address)oprs.get(0)).getAddress();
-            }
-        }
-
-        protected abstract boolean check(Context context);
-    }
-
-    enum Bb implements ICode {
-        BBS   (0xe0, L,B,BrB),
-        BBC   (0xe1, L,B,BrB),
-        BBSS  (0xe2, L,B,BrB),
-        BBCS  (0xe3, L,B,BrB),
-        BBSC  (0xe4, L,B,BrB),
-        BBCC  (0xe5, L,B,BrB),
-        BBSSI (0xe6, L,B,BrB),
-        BBCCI (0xe7, L,B,BrB);
-
-        private final int bin;
-        private final DataType[] operands;
-
-        private Bb(int bin, DataType... oprs) {
-            this.bin = bin;
-            this.operands = oprs;
-        }
-
-        @Override public int bin() {
-            return bin;
-        }
-
-        @Override public DataType[] operands() {
-            return operands;
-        }
-
-        @Override public String mnemonic() {
-            return name().toLowerCase(Locale.ENGLISH);
-        }
-
-        @Override public void execute(List<Operand> oprs) {
-            int pos = oprs.get(0).getValue().uint();
-            Operand base = oprs.get(1);
-            Address dest = (Address)oprs.get(2);
-
-            boolean isSet;
+        else {
+            long srcVal;
             if (base instanceof Register) {
                 assert (pos & 0xffffffffL) <= 31 : "Reserved operand fault";
 
                 int regNum = ((Register)base).regNum;
-                int bit = 1 << (pos & 0x1f);
-                isSet = (context.register[regNum] & bit) != 0;
-                if (doesSetBit()) {
-                    context.register[regNum] |= bit;
-                } else if (doesClearBit()) {
-                    context.register[regNum] &= ~bit;
-                }
+                srcVal = ((long)context.register[regNum + 1] << 32) | context.register[regNum];
             } else {
-                int addr = ((Address)base).getAddress() + (pos >> 3);
-                int bit = 1 << (pos & 7);
-                int targetByte = context.memory.load(addr, DataType.B).uint();
-                isSet = (targetByte & bit) != 0;
-                if (doesSetBit()) {
-                    context.memory.store(addr, new IntData(targetByte | bit, DataType.B));
-                } else if (doesClearBit()) {
-                    context.memory.store(addr, new IntData(targetByte & ~bit, DataType.B));
-                }
+                int addr = ((Address)base).getAddress() + (pos >>> 5);
+                pos = pos & 31;
+                srcVal =
+                    ((long)context.memory.load(addr + 4, DataType.L).uint() << 32) |
+                    context.memory.load(addr, DataType.L).uint();
             }
 
-            if (isSet == doesBranchOnSet()) {
-                context.register[PC] = dest.getAddress();
-            }
+            int lSpace = 64 - (pos + size);
+            int eVal = (int)(isSignExt() ?
+                             srcVal << lSpace >> (lSpace + pos) :
+                             srcVal << lSpace >>> (lSpace + pos));
+            extVal = new IntData(eVal, DataType.L);
         }
 
-        private boolean doesBranchOnSet() {
-            int enumOrd = ordinal();
-            return enumOrd == BBS.ordinal() ||
-                   enumOrd == BBSS.ordinal() ||
-                   enumOrd == BBSC.ordinal() ||
-                   enumOrd == BBSSI.ordinal();
-        }
-
-        private boolean doesSetBit() {
-            int enumOrd = ordinal();
-            return enumOrd == BBSS.ordinal() ||
-                   enumOrd == BBCS.ordinal() ||
-                   enumOrd == BBSSI.ordinal();
-        }
-
-        private boolean doesClearBit() {
-            int enumOrd = ordinal();
-            return enumOrd == BBSC.ordinal() ||
-                   enumOrd == BBCC.ordinal() ||
-                   enumOrd == BBCCI.ordinal();
-        }
+        dest.setValue(extVal);
+        context.flagN.set( extVal.isNegValue() );
+        context.flagZ.set( extVal.isZeroValue() );
+        context.flagV.clear();
     }
 
-    enum Blb implements ICode {
-        BLBS (0xe8, L,BrB),
-        BLBC (0xe9, L,BrB);
+    protected abstract boolean isSignExt();
+}
 
-        private final int bin;
-        private final DataType[] operands;
+enum InsvExec implements CodeExec {
+    InsvExec;
+    @Override
+    public void execute(List<Operand> oprs, Context context) {
+        int size = oprs.get(2).getValue().uint();
 
-        private Blb(int bin, DataType... oprs) {
-            this.bin = bin;
-            this.operands = oprs;
-        }
+        assert size <= 32 : "Reserved operand fault";
 
-        @Override public int bin() {
-            return bin;
-        }
+        if (size != 0) {
+            int pos = oprs.get(1).getValue().uint();
+            long srcVal = (long)oprs.get(0).getValue().uint() << pos;
+            Operand base = oprs.get(3);
+            if (base instanceof Register) {
+                assert (pos & 0xffffffffL) <= 31 : "Reserved operand fault";
 
-        @Override public DataType[] operands() {
-            return operands;
-        }
-
-        @Override public String mnemonic() {
-            return name().toLowerCase(Locale.ENGLISH);
-        }
-
-        @Override public void execute(List<Operand> oprs) {
-            IntData srcVal = oprs.get(0).getValue();
-            boolean isSet = (srcVal.uint() & 1) == 1;
-            if (isSet == doesBranchOnSet()) {
-                Address dest = (Address)oprs.get(1);
-                context.register[PC] = dest.getAddress();
-            }
-        }
-
-        private boolean doesBranchOnSet() {
-            return ordinal() == BLBS.ordinal();
-        }
-    }
-
-
-    enum Call implements ICode {
-        CALLG (0xfa, B,B),
-        CALLS (0xfb, L,B);
-
-        private final int bin;
-        private final DataType[] operands;
-
-        private Call(int bin, DataType... oprs) {
-            this.bin = bin;
-            this.operands = oprs;
-        }
-
-        @Override public int bin() {
-            return bin;
-        }
-
-        @Override public DataType[] operands() {
-            return operands;
-        }
-
-        @Override public String mnemonic() {
-            return name().toLowerCase(Locale.ENGLISH);
-        }
-
-        @Override public void execute(List<Operand> oprs) {
-            if (callType() == 'S') {
-                IntData nArgs = oprs.get(0).getValue();
-                context.push(nArgs);
-            }
-            int preSp = context.register[SP];
-            context.register[SP] &= ~0x3;
-
-            int addr = ((Address)oprs.get(1)).getAddress();
-            int entryMask = context.memory.load(addr, DataType.W).uint();
-            for (int i = 11; i >= 0; i--) {
-                if ((entryMask & 1 << i) != 0) {
-                    context.push(context.register[i]);
-                }
-            }
-            context.push(context.register[PC]);
-            context.push(context.register[FP]);
-            context.push(context.register[AP]);
-
-            context.flagN.clear();
-            context.flagZ.clear();
-            context.flagV.clear();
-            context.flagC.clear();
-
-            int status = 0;
-            status |= preSp << 30;               // low 2 bits of the SP
-            if (callType() == 'S') {
-                status |= 0b1 << 29;             // S flag
-            }
-            status |= (entryMask & 0xfff) << 16; // procedure entry mask[0..12]
-            status |= context.psl & 0xffef;      // processor status register[0..15] with T cleard
-            context.push(status);
-
-            context.push(0);
-
-            context.register[FP] = context.register[SP];
-            if (callType() == 'G') {
-                context.register[AP] = ((Address)oprs.get(0)).getAddress();
+                int regNum = ((Register)base).regNum;
+                long orgVal =
+                    ((long)context.register[regNum + 1] << 32) |
+                    context.register[regNum];
+                long mask = (~(0xffffffffffffffffL << size)) << pos;
+                long insVal = (orgVal & ~mask) | (srcVal & mask);
+                context.setRegisterValue(regNum, new IntData(insVal, DataType.Q));
             } else {
-                context.register[AP] = preSp;
-            }
+                int addr = ((Address)base).getAddress() + (pos >>> 5);
+                pos = pos & 31;
 
-            context.flagIV.set( (entryMask & 0x4000) != 0 );
-            context.flagDV.set( (entryMask & 0x8000) != 0 );
-            context.flagFU.clear();
-
-            context.register[PC] = addr + 2;
-        }
-
-        private char callType() {
-            if (ordinal() == CALLG.ordinal()) {
-                return 'G';
-            } else {
-                return 'S';
+                long orgVal =
+                    ((long)context.memory.load(addr + 4, DataType.L).uint() << 32) |
+                    context.memory.load(addr, DataType.L).uint();
+                long mask = (~(0xffffffffffffffffL << size)) << pos;
+                long insVal = (orgVal & ~mask) | (srcVal & mask);
+                context.memory.store(addr, new IntData(insVal, DataType.Q));
             }
         }
     }
+}
 
-    enum Ret implements ICode {
-        RET (0x4);
+enum JmpExec implements CodeExec {
+    JmpExec;
+    @Override
+    public void execute(List<Operand> oprs, Context context) {
+        context.register[PC] = ((Address)oprs.get(0)).getAddress();
+    }
+}
 
-        private final int bin;
-        private final DataType[] operands;
-
-        private Ret(int bin, DataType... oprs) {
-            this.bin = bin;
-            this.operands = oprs;
+enum BrExec implements CodeExec {
+    BrExec {
+        @Override
+        public boolean check(Context context) {
+            return true;
         }
-
-        @Override public int bin() {
-            return bin;
+    },
+    BneqExec {
+        @Override
+        public boolean check(Context context) {
+            return !context.flagZ.get();
         }
-
-        @Override public DataType[] operands() {
-            return operands;
+    },
+    BeqlExec {
+        @Override
+        public boolean check(Context context) {
+            return context.flagZ.get();
         }
-
-        @Override public String mnemonic() {
-            return name().toLowerCase(Locale.ENGLISH);
+    },
+    BgtrExec {
+        @Override
+        public boolean check(Context context) {
+            return !context.flagN.get() && !context.flagZ.get();
         }
+    },
+    BleqExec {
+        @Override
+        public boolean check(Context context) {
+            return context.flagN.get() || context.flagZ.get();
+        }
+    },
+    BgeqExec {
+        @Override
+        public boolean check(Context context) {
+            return !context.flagN.get();
+        }
+    },
+    BlssExec {
+        @Override
+        public boolean check(Context context) {
+            return context.flagN.get();
+        }
+    },
+    BgtruExec {
+        @Override
+        public boolean check(Context context) {
+            return !context.flagC.get() && !context.flagZ.get();
+        }
+    },
+    BlequExec {
+        @Override
+        public boolean check(Context context) {
+            return context.flagC.get() || context.flagZ.get();
+        }
+    },
+    BvcExec {
+        @Override
+        public boolean check(Context context) {
+            return !context.flagV.get();
+        }
+    },
+    BvsExec {
+        @Override
+        public boolean check(Context context) {
+            return context.flagV.get();
+        }
+    },
+    BccExec {
+        @Override
+        public boolean check(Context context) {
+            return !context.flagC.get();
+        }
+    },
+    BlssuExec {
+        @Override
+        public boolean check(Context context) {
+            return context.flagC.get();
+        }
+    };
 
-        @Override public void execute(List<Operand> oprs) {
-            context.register[SP] = context.register[FP] + 4;
-            int tmp = context.pop();
-            context.register[AP] = context.pop();
-            context.register[FP] = context.pop();
-            context.register[PC] = context.pop();
-
-            int entryMask = (tmp >> 16) & 0xfff;
-            for (int i = 0; i <= 11; i++) {
-                if ((entryMask & 1 << i) != 0) {
-                    context.register[i] = context.pop();
-                }
-            }
-
-            context.register[SP] |= tmp >>> 30;
-
-            context.psl = tmp & 0xffff;
-
-            boolean isCalledWithS = (tmp & 0b1 << 29) != 0;
-            if (isCalledWithS) {
-                int nArgs = context.pop() & 0xff;
-                context.register[SP] += nArgs * 4;
-            }
+    @Override
+    public void execute(List<Operand> oprs, Context context) {
+        if (check(context)) {
+            context.register[PC] = ((Address)oprs.get(0)).getAddress();
         }
     }
 
-    enum Chmk implements ICode {
-        CHMK  (0xbc, W);
+    protected abstract boolean check(Context context);
+}
 
-        private final int bin;
-        private final DataType[] operands;
-
-        private Chmk(int bin, DataType... oprs) {
-            this.bin = bin;
-            this.operands = oprs;
+enum BbExec implements CodeExec {
+    BbsExec {
+        @Override
+        public boolean doesBranchOnSet() {
+            return true;
         }
-
-        @Override public int bin() {
-            return bin;
+    },
+    BbcExec {
+    },
+    BbssExec {
+        @Override
+        public boolean doesSetBit() {
+            return true;
         }
-
-        @Override public DataType[] operands() {
-            return operands;
+        @Override
+        public boolean doesBranchOnSet() {
+            return true;
         }
-
-        @Override public String mnemonic() {
-            return name().toLowerCase(Locale.ENGLISH);
+    },
+    BbcsExec {
+        @Override
+        public boolean doesSetBit() {
+            return true;
         }
-
-        @Override public void execute(List<Operand> oprs) {
-            int codeNum = oprs.get(0).getValue().uint();
-            Kernel.syscall(codeNum, context);
+    },
+    BbscExec {
+        @Override
+        public boolean doesClearBit() {
+            return true;
         }
-    }
-
-    enum Case implements ICode {
-        CASEB (0x8f, B,B,B), CASEW (0xaf, W,W,W),
-        CASEL (0xcf, L,L,L);
-
-        private final int bin;
-        private final DataType[] operands;
-
-        private Case(int bin, DataType... oprs) {
-            this.bin = bin;
-            this.operands = oprs;
+        @Override
+        public boolean doesBranchOnSet() {
+            return true;
         }
-
-        @Override public int bin() {
-            return bin;
+    },
+    BbccExec{
+        @Override
+        public boolean doesClearBit() {
+            return true;
         }
+    };
 
-        @Override public DataType[] operands() {
-            return operands;
-        }
+    @Override public void execute(List<Operand> oprs, Context context) {
+        int pos = oprs.get(0).getValue().uint();
+        Operand base = oprs.get(1);
+        Address dest = (Address)oprs.get(2);
 
-        @Override public String mnemonic() {
-            return name().toLowerCase(Locale.ENGLISH);
-        }
+        boolean isSet;
+        if (base instanceof Register) {
+            assert (pos & 0xffffffffL) <= 31 : "Reserved operand fault";
 
-        @Override public void execute(List<Operand> oprs) {
-            IntData sel = oprs.get(0).getValue();
-            IntData base = oprs.get(1).getValue();
-            IntData limit = oprs.get(2).getValue();
-            IntData offset = new IntData(sel.sint() - base.sint(), sel.dataType());
-
-            Calculator.sub(offset, limit, context);
-            context.flagV.clear();
-
-            if (context.flagC.get() || context.flagZ.get()) {
-                int dispAddr = context.register[PC] + offset.uint() * 2;
-                IntData disp = context.memory.load(dispAddr, DataType.W);
-                context.register[PC] += disp.sint();
-            } else {
-                context.register[PC] += (limit.uint() + 1) * 2;
+            int regNum = ((Register)base).regNum;
+            int bit = 1 << (pos & 0x1f);
+            isSet = (context.register[regNum] & bit) != 0;
+            if (doesSetBit()) {
+                context.register[regNum] |= bit;
+            } else if (doesClearBit()) {
+                context.register[regNum] &= ~bit;
+            }
+        } else {
+            int addr = ((Address)base).getAddress() + (pos >> 3);
+            int targetByte = context.memory.load(addr, DataType.B).uint();
+            int bit = 1 << (pos & 7);
+            isSet = (targetByte & bit) != 0;
+            if (doesSetBit()) {
+                context.memory.store(addr, new IntData(targetByte | bit, DataType.B));
+            } else if (doesClearBit()) {
+                context.memory.store(addr, new IntData(targetByte & ~bit, DataType.B));
             }
         }
+
+        if (isSet == doesBranchOnSet()) {
+            context.register[PC] = dest.getAddress();
+        }
     }
 
-    enum Aob implements ICode {
-        AOBLSS(0xf2, L,L,BrB) {
-            @Override protected boolean check(IntData index, IntData limit) {
+    protected boolean doesSetBit() {
+        return false;
+    }
+    protected boolean doesClearBit() {
+        return false;
+    }
+    protected boolean doesBranchOnSet() {
+        return false;
+    }
+}
+
+enum BlbExec implements CodeExec {
+    BlbsExec {
+        @Override
+        protected boolean doesBranchOnSet() {
+            return true;
+        }
+    },
+    BlbcExec {
+        @Override
+        protected boolean doesBranchOnSet() {
+            return false;
+        }
+    };
+
+    @Override
+    public void execute(List<Operand> oprs, Context context) {
+        IntData srcVal = oprs.get(0).getValue();
+        boolean isSet = (srcVal.uint() & 1) == 1;
+        if (isSet == doesBranchOnSet()) {
+            Address dest = (Address)oprs.get(1);
+            context.register[PC] = dest.getAddress();
+        }
+    }
+
+    protected abstract boolean doesBranchOnSet();
+}
+
+enum CallExec implements CodeExec {
+    CallgExec {
+        @Override
+        protected char callType() {
+            return 'G';
+        }
+    },
+    CallsExec {
+        @Override
+        protected char callType() {
+            return 'S';
+        }
+    };
+
+    @Override
+    public void execute(List<Operand> oprs, Context context) {
+        if (callType() == 'S') {
+            IntData nArgs = oprs.get(0).getValue();
+            context.push(nArgs);
+        }
+        int preSp = context.register[SP];
+        context.register[SP] &= ~0x3;
+
+        int addr = ((Address)oprs.get(1)).getAddress();
+        int entryMask = context.memory.load(addr, DataType.W).uint();
+        for (int i = 11; i >= 0; i--) {
+            if ((entryMask & 1 << i) != 0) {
+                context.push(context.register[i]);
+            }
+        }
+        context.push(context.register[PC]);
+        context.push(context.register[FP]);
+        context.push(context.register[AP]);
+
+        context.flagN.clear();
+        context.flagZ.clear();
+        context.flagV.clear();
+        context.flagC.clear();
+
+        int status = 0;
+        status |= preSp << 30;               // low 2 bits of the SP
+        if (callType() == 'S') {
+            status |= 0b1 << 29;             // S flag
+        }
+        status |= (entryMask & 0xfff) << 16; // procedure entry mask[0..12]
+        status |= context.psl & 0xffef;      // processor status register[0..15] with T cleard
+        context.push(status);
+
+        context.push(0);
+
+        context.register[FP] = context.register[SP];
+        if (callType() == 'G') {
+            context.register[AP] = ((Address)oprs.get(0)).getAddress();
+        } else {
+            context.register[AP] = preSp;
+        }
+
+        context.flagIV.set( (entryMask & 0x4000) != 0 );
+        context.flagDV.set( (entryMask & 0x8000) != 0 );
+        context.flagFU.clear();
+
+        context.register[PC] = addr + 2;
+    }
+
+    protected abstract char callType();
+}
+
+enum RetExec implements CodeExec {
+    RetExec;
+    @Override
+    public void execute(List<Operand> oprs, Context context) {
+        context.register[SP] = context.register[FP] + 4;
+        int tmp = context.pop();
+        context.register[AP] = context.pop();
+        context.register[FP] = context.pop();
+        context.register[PC] = context.pop();
+
+        int entryMask = (tmp >> 16) & 0xfff;
+        for (int i = 0; i <= 11; i++) {
+            if ((entryMask & 1 << i) != 0) {
+                context.register[i] = context.pop();
+            }
+        }
+
+        context.register[SP] |= tmp >>> 30;
+
+        context.psl = tmp & 0xffff;
+
+        boolean isCalledWithS = (tmp & 0b1 << 29) != 0;
+        if (isCalledWithS) {
+            int nArgs = context.pop() & 0xff;
+            context.register[SP] += nArgs * 4;
+        }
+    }
+}
+
+enum ChmkExec implements CodeExec {
+    ChmkExec;
+    @Override
+    public void execute(List<Operand> oprs, Context context) {
+        int codeNum = oprs.get(0).getValue().uint();
+        Kernel.syscall(codeNum, context);
+    }
+}
+
+enum CaseExec implements CodeExec {
+    CaseExec;
+    @Override
+    public void execute(List<Operand> oprs, Context context) {
+        IntData sel = oprs.get(0).getValue();
+        IntData base = oprs.get(1).getValue();
+        IntData limit = oprs.get(2).getValue();
+        IntData offset = new IntData(sel.sint() - base.sint(), sel.dataType());
+
+        Calculator.sub(offset, limit, context);
+        context.flagV.clear();
+
+        if (context.flagC.get() || context.flagZ.get()) {
+            int dispAddr = context.register[PC] + offset.uint() * 2;
+            IntData disp = context.memory.load(dispAddr, DataType.W);
+            context.register[PC] += disp.sint();
+        } else {
+            context.register[PC] += (limit.uint() + 1) * 2;
+        }
+    }
+}
+
+enum AobExec implements CodeExec {
+    AoblssExec {
+        @Override
+        protected boolean check(IntData index, IntData limit) {
                 return index.sint() < limit.sint();
             }
         },
-        AOBLEQ(0xf3, L,L,BrB) {
-            @Override protected boolean check(IntData index, IntData limit) {
-                return index.sint() <= limit.sint();
+    AobleqExec {
+        @Override
+        protected boolean check(IntData index, IntData limit) {
+            return index.sint() <= limit.sint();
+        }
+    };
+
+    @Override
+    public void execute(List<Operand> oprs, Context context) {
+        IntData limit = oprs.get(0).getValue();
+        Operand indexOpr = oprs.get(1);
+        IntData index = indexOpr.getValue();
+        Address dest = (Address)oprs.get(2);
+        boolean preFlagC = context.flagC.get();
+
+        index = Calculator.add(index, new IntData(1), context);
+        indexOpr.setValue(index);
+        context.flagC.set(preFlagC);
+
+        if (check(index, limit)) {
+            context.register[PC] = dest.getAddress();
+        }
+    }
+
+    protected abstract boolean check(IntData index, IntData limit);
+}
+
+enum SobExec implements CodeExec {
+    SobgeqExec {
+        @Override
+        protected boolean check(Context context) {
+            return !context.flagN.get();
+        }
+    },
+    SobgtrExec {
+        @Override
+        protected boolean check(Context context) {
+            return !context.flagN.get() && !context.flagZ.get();
+        }
+    };
+
+    @Override
+    public void execute(List<Operand> oprs, Context context) {
+        Operand indexOpr = oprs.get(0);
+        IntData index = indexOpr.getValue();
+        Address dest = (Address)oprs.get(1);
+        boolean preFlagC = context.flagC.get();
+
+        index = Calculator.sub(index, new IntData(1), context);
+        indexOpr.setValue(index);
+        context.flagC.set(preFlagC);
+
+        if (check(context)) {
+            context.register[PC] = dest.getAddress();
+        }
+    }
+
+    protected abstract boolean check(Context context);
+}
+
+enum CvtExec implements CodeExec {
+    CvtExec;
+    @Override
+    public void execute(List<Operand> oprs, Context context) {
+        IntData srcVal = oprs.get(0).getValue();
+        Operand dest = oprs.get(1);
+        IntData cvtVal = new IntData(srcVal.sint(), dest.dataType);
+        dest.setValue(cvtVal);
+
+        context.flagN.set( cvtVal.isNegValue() );
+        context.flagZ.set( cvtVal.isZeroValue() );
+        context.flagV.set( srcVal.isNegValue() != cvtVal.isNegValue() );
+        context.flagC.clear();
+    }
+}
+
+enum CvtlpExec implements CodeExec {
+    CvtlpExec;
+    @Override
+    public void execute(List<Operand> oprs, Context context) {
+        IntData srcVal = oprs.get(0).getValue();
+        long src = (long)srcVal.sint();
+        int len = oprs.get(1).getValue().uint();
+        Address dest = (Address)oprs.get(2);
+
+        byte tail = src >= 0 ? (byte)12 : (byte)13;
+        src = Math.abs(src);
+        if (len != 0) {
+            tail += src % 10 << 4;
+            src /= 10;
+            --len;
+        }
+
+        Deque<Byte> bytes = new ArrayDeque<>();
+        bytes.addFirst(tail);
+
+        while (len-- > 0) {
+            byte val = (byte)(src % 10);
+            src /= 10;
+            if (len-- > 0) {
+                val |= (byte)(src % 10 << 4);
+                src /= 10;
             }
-        };
-
-        private final int bin;
-        private final DataType[] operands;
-
-        private Aob(int bin, DataType... oprs) {
-            this.bin = bin;
-            this.operands = oprs;
+            bytes.addFirst(val);
         }
 
-        @Override public int bin() {
-            return bin;
+        int destAddr = dest.getAddress();
+        while (!bytes.isEmpty()) {
+            byte val = bytes.removeFirst();
+            context.memory.store(destAddr++, new IntData(val, DataType.B));
         }
 
-        @Override public DataType[] operands() {
-            return operands;
-        }
+        context.register[0] = 0;
+        context.register[1] = 0;
+        context.register[2] = 0;
+        context.register[3] = dest.getAddress();
 
-        @Override public String mnemonic() {
-            return name().toLowerCase(Locale.ENGLISH);
-        }
+        context.flagN.set( srcVal.isNegValue() );
+        context.flagZ.set( srcVal.isZeroValue() );
+        context.flagC.clear();
+    }
+}
 
-        @Override public void execute(List<Operand> oprs) {
-            IntData limit = oprs.get(0).getValue();
-            Operand indexOpr = oprs.get(1);
-            IntData index = indexOpr.getValue();
-            Address dest = (Address)oprs.get(2);
-            boolean preFlagC = context.flagC.get();
+enum AcbExec implements CodeExec {
+    AcbExec;
+    @Override
+    public void execute(List<Operand> oprs, Context context) {
+        IntData limit = oprs.get(0).getValue();
+        IntData addend = oprs.get(1).getValue();
+        Operand indexOpr = oprs.get(2);
+        IntData index = indexOpr.getValue();
+        Address dest = (Address)oprs.get(3);
+        boolean preFlagC = context.flagC.get();
 
-            index = Calculator.add(index, new IntData(1), context);
-            indexOpr.setValue(index);
-            context.flagC.set(preFlagC);
+        index = Calculator.add(index, addend, context);
+        indexOpr.setValue(index);
+        context.flagC.set(preFlagC);
 
-            if (check(index, limit)) {
+        if (!addend.isNegValue()) {
+            if (index.sint() <= limit.sint()) {
+                context.register[PC] = dest.getAddress();
+            }
+        } else {
+            if (index.sint() >= limit.sint()) {
                 context.register[PC] = dest.getAddress();
             }
         }
-
-        protected abstract boolean check(IntData index, IntData limit);
     }
+}
 
-    enum Sob implements ICode {
-        SOBGEQ (0xf4, L,BrB) {
-            @Override protected boolean check(Context context) {
-                return !context.flagN.get();
-            }
-        },
-        SOBGTR(0xf5, L,BrB) {
-            @Override protected boolean check(Context context) {
-                return !context.flagN.get() && !context.flagZ.get();
-            }
-        };
-
-        private final int bin;
-        private final DataType[] operands;
-
-        private Sob(int bin, DataType... oprs) {
-            this.bin = bin;
-            this.operands = oprs;
+enum MovcExec implements CodeExec {
+    MovcExec;
+    @Override
+    public void execute(List<Operand> oprs, Context context) {
+        IntData srclen = oprs.get(0).getValue();
+        int srcAddr = ((Address)oprs.get(1)).getAddress();
+        IntData fillVal;
+        IntData destlen;
+        int destAddr;
+        if (oprs.size() == 5) {
+            fillVal = oprs.get(2).getValue();
+            destlen = oprs.get(3).getValue();
+            destAddr = ((Address)oprs.get(4)).getAddress();
+        } else {
+            fillVal = null;
+            destlen = srclen;
+            destAddr = ((Address)oprs.get(2)).getAddress();
         }
 
-        @Override public int bin() {
-            return bin;
+        int slen = srclen.uint();
+        int dlen = destlen.uint();
+        for (; slen > 0 && dlen >0; slen--, dlen--) {
+            IntData byteVal = context.memory.load(srcAddr++, DataType.B);
+            context.memory.store(destAddr++, byteVal);
+        }
+        for (; dlen > 0; dlen--) {
+            context.memory.store(destAddr++, fillVal);
         }
 
-        @Override public DataType[] operands() {
-            return operands;
-        }
-
-        @Override public String mnemonic() {
-            return name().toLowerCase(Locale.ENGLISH);
-        }
-
-        @Override public void execute(List<Operand> oprs) {
-            Operand indexOpr = oprs.get(0);
-            IntData index = indexOpr.getValue();
-            Address dest = (Address)oprs.get(1);
-            boolean preFlagC = context.flagC.get();
-
-            index = Calculator.sub(index, new IntData(1), context);
-            indexOpr.setValue(index);
-            context.flagC.set(preFlagC);
-
-            if (check(context)) {
-                context.register[PC] = dest.getAddress();
-            }
-        }
-
-        protected abstract boolean check(Context context);
+        context.register[0] = slen;
+        context.register[1] = srcAddr;
+        context.register[2] = 0;
+        context.register[3] = destAddr;
+        context.register[4] = 0;
+        context.register[5] = 0;
+        // Set flags
+        Calculator.sub(srclen, destlen, context);
+        context.flagV.clear();
     }
+}
 
-    enum Cvt implements ICode {
-        CVTBW (0x99, B,W), CVTBL (0x98, B,L),
-        CVTWB (0x33, W,B), CVTWL (0x32, W,L),
-        CVTLB (0xf6, L,B), CVTLW (0xf7, L,W);
-
-        private final int bin;
-        private final DataType[] operands;
-
-        private Cvt(int bin, DataType... oprs) {
-            this.bin = bin;
-            this.operands = oprs;
+enum CmpcExec implements CodeExec {
+    CmpcExec;
+    @Override
+    public void execute(List<Operand> oprs, Context context) {
+        IntData str1len = oprs.get(0).getValue();
+        int str1Addr = ((Address)oprs.get(1)).getAddress();
+        IntData fillVal;
+        IntData str2len;
+        int str2Addr;
+        if (oprs.size() == 5) {
+            fillVal = oprs.get(2).getValue();
+            str2len = oprs.get(3).getValue();
+            str2Addr = ((Address)oprs.get(4)).getAddress();
+        } else {
+            fillVal = null;
+            str2len = str1len;
+            str2Addr = ((Address)oprs.get(2)).getAddress();
         }
 
-        @Override public int bin() {
-            return bin;
-        }
-
-        @Override public DataType[] operands() {
-            return operands;
-        }
-
-        @Override public String mnemonic() {
-            return name().toLowerCase(Locale.ENGLISH);
-        }
-
-        @Override public void execute(List<Operand> oprs) {
-            IntData srcVal = oprs.get(0).getValue();
-            Operand dest = oprs.get(1);
-            IntData cvtVal = new IntData(srcVal.sint(), operands[1]);
-            dest.setValue(cvtVal);
-
-            context.flagN.set( cvtVal.isNegValue() );
-            context.flagZ.set( cvtVal.isZeroValue() );
-            context.flagV.set( srcVal.isNegValue() != cvtVal.isNegValue() );
-            context.flagC.clear();
-        }
-    }
-    /*
-      enum FCvt implements ICode {
-      CVTBF (0x4c, B,F),   CVTBD (0x6c, B,D),
-      CVTBG (0x4cfd, B,G), CVTBH (0x6cfd, B,H),
-      CVTWF (0x4d, W,F),   CVTWD (0x6d, W,D),
-      CVTWG (0x4dfd, W,G), CVTWH (0x6dfd, W,H),
-      CVTLF (0x4e, L,F),   CVTLD (0x6e, L,D),
-      CVTLG (0x4efd, L,G), CVTLH (0x6efd, L,H),
-      CVTFB (0x48, F,B),   CVTDB (0x68, D,B),
-      CVTGB (0x48fd, G,B), CVTHB (0x68fd, H,B),
-      CVTFW (0x49, F,W),   CVTDW (0x69, D,W),
-      CVTGW (0x49fd, G,W), CVTHW (0x69fd, H,W),
-      CVTFL (0x4a, F,L),   CVTRFL(0x4b, F,L),
-      CVTDL (0x6a, D,L),   CVTRDL(0x6b, D,L),
-      CVTGL (0x4afd, G,L), CVTRGL(0x4bfd, G,L),
-      CVTHL (0x6afd, H,L), CVTRHL(0x6bfd, H,L),
-      CVTFD (0x56, F,D),   CVTFG (0x99fd, F,G),
-      CVTFH (0x98fd, F,H), CVTDF (0x76, D,F),
-      CVTDH (0x32fd, D,H), CVTGF (0x33fd, G,F),
-      CVTGH (0x56fd, G,H), CVTHF (0xf6fd, H,F),
-      CVTHD (0xf7fd, H,D), CVTHG (0x76fd, H,G);
-
-      private final int bin;
-      private final DataType[] operands;
-
-      private FCvt(int bin, DataType... oprs) {
-      this.bin = bin;
-      this.operands = oprs;
-      }
-
-      @Override public int bin() {
-      return bin;
-      }
-
-      @Override public DataType[] operands() {
-      return operands;
-      }
-
-      @Override public String mnemonic() {
-      return name().toLowerCase(Locale.ENGLISH);
-      }
-
-      @Override public void execute(List<Operand> oprs) {
-      }
-      }*/
-
-    enum Cvtlp implements ICode {
-        CVTLP (0xf9, L,W,B);
-
-        private final int bin;
-        private final DataType[] operands;
-
-        private Cvtlp(int bin, DataType... oprs) {
-            this.bin = bin;
-            this.operands = oprs;
-        }
-
-        @Override public int bin() {
-            return bin;
-        }
-
-        @Override public DataType[] operands() {
-            return operands;
-        }
-
-        @Override public String mnemonic() {
-            return name().toLowerCase(Locale.ENGLISH);
-        }
-
-        @Override public void execute(List<Operand> oprs) {
-            IntData srcVal = oprs.get(0).getValue();
-            long src = (long)srcVal.sint();
-            int len = oprs.get(1).getValue().uint();
-            Address dest = (Address)oprs.get(2);
-
-            byte tail = src >= 0 ? (byte)12 : (byte)13;
-            src = Math.abs(src);
-            if (len != 0) {
-                tail += src % 10 << 4;
-                src /= 10;
-                --len;
-            }
-
-            Deque<Byte> bytes = new ArrayDeque<>();
-            bytes.addFirst(tail);
-
-            while (len-- > 0) {
-                byte val = (byte)(src % 10);
-                src /= 10;
-                if (len-- > 0) {
-                    val |= (byte)(src % 10 << 4);
-                    src /= 10;
+        int s1len = str1len.uint();
+        int s2len = str2len.uint();
+        COMPC: {
+            for (; s1len > 0 && s2len >0; s1len--, s2len--, str1Addr++, str2Addr++) {
+                IntData str1Val = context.memory.load(str1Addr, DataType.B);
+                IntData str2Val = context.memory.load(str2Addr, DataType.B);
+                Calculator.sub(str1Val, str2Val, context);
+                if (!context.flagZ.get()) {
+                    break COMPC;
                 }
-                bytes.addFirst(val);
             }
-
-            int destAddr = dest.getAddress();
-            while (!bytes.isEmpty()) {
-                byte val = bytes.removeFirst();
-                context.memory.store(destAddr++, new IntData(val, DataType.B));
-            }
-
-            context.register[0] = 0;
-            context.register[1] = 0;
-            context.register[2] = 0;
-            context.register[3] = dest.getAddress();
-
-            context.flagN.set( srcVal.isNegValue() );
-            context.flagZ.set( srcVal.isZeroValue() );
-            context.flagC.clear();
-        }
-    }
-
-    enum Acb implements ICode {
-        ACBB (0x9d, B,B,B,BrW), ACBW (0x3d, W,W,W,BrW),
-        ACBL (0xf1, L,L,L,BrW);
-
-        private final int bin;
-        private final DataType[] operands;
-
-        private Acb(int bin, DataType... oprs) {
-            this.bin = bin;
-            this.operands = oprs;
-        }
-
-        @Override public int bin() {
-            return bin;
-        }
-
-        @Override public DataType[] operands() {
-            return operands;
-        }
-
-        @Override public String mnemonic() {
-            return name().toLowerCase(Locale.ENGLISH);
-        }
-
-        @Override public void execute(List<Operand> oprs) {
-            IntData limit = oprs.get(0).getValue();
-            IntData addend = oprs.get(1).getValue();
-            Operand indexOpr = oprs.get(2);
-            IntData index = indexOpr.getValue();
-            Address dest = (Address)oprs.get(3);
-            boolean preFlagC = context.flagC.get();
-
-            index = Calculator.add(index, addend, context);
-            indexOpr.setValue(index);
-            context.flagC.set(preFlagC);
-
-            if (!addend.isNegValue()) {
-                if (index.sint() <= limit.sint()) {
-                    context.register[PC] = dest.getAddress();
+            for (; s1len > 0; s1len--, str1Addr++) {
+                IntData str1Val = context.memory.load(str1Addr, DataType.B);
+                Calculator.sub(str1Val, fillVal, context);
+                if (!context.flagZ.get()) {
+                    break COMPC;
                 }
-            } else {
-                if (index.sint() >= limit.sint()) {
-                    context.register[PC] = dest.getAddress();
+            }
+            for (; s2len > 0; s2len--, str2Addr++) {
+                IntData str2Val = context.memory.load(str2Addr, DataType.B);
+                Calculator.sub(fillVal, str2Val, context);
+                if (!context.flagZ.get()) {
+                    break COMPC;
                 }
             }
         }
+
+        context.register[0] = s1len;
+        context.register[1] = str1Addr;
+        context.register[2] = s2len;
+        context.register[3] = str2Addr;
+        context.flagV.clear();
+    }
+}
+
+enum LoccExec implements CodeExec {
+    LoccExec {
+        @Override
+        protected boolean isDetected(IntData actual, IntData target) {
+            return actual.uint() == target.uint();
+        }
+    },
+    SkpcExec {
+        @Override
+        protected boolean isDetected(IntData actual, IntData target) {
+            return actual.uint() != target.uint();
+        }
+    };
+
+    @Override
+    public void execute(List<Operand> oprs, Context context) {
+        IntData target = oprs.get(0).getValue();
+        int len = oprs.get(1).getValue().uint();
+        int addr = ((Address)oprs.get(2)).getAddress();
+
+        for (; len > 0; len--, addr++) {
+            IntData byteVal = context.memory.load(addr, DataType.B);
+            if (isDetected(target, byteVal)) {
+                break;
+            }
+        }
+
+        context.register[0] = len;
+        context.register[1] = addr;
+        context.flagN.clear();
+        context.flagZ.set( context.register[0] == 0 );
+        context.flagV.clear();
+        context.flagC.clear();
     }
 
-    enum Movc implements ICode {
-        MOVC3 (0x28, W,B,B), MOVC5 (0x2c, W,B,B,W,B);
+    protected abstract boolean isDetected(IntData actual, IntData target);
+}
 
-        private final int bin;
-        private final DataType[] operands;
+enum MovpExec implements CodeExec {
+    MovpExec;
+    @Override
+    public void execute(List<Operand> oprs, Context context) {
+        int len = oprs.get(0).getValue().uint();
+        int srcAddr = ((Address)oprs.get(1)).getAddress();
+        int destAddr = ((Address)oprs.get(2)).getAddress();
+        int mostSigSrcAddr = srcAddr;
+        int mostSigDestAddr = destAddr;
 
-        private Movc(int bin, DataType... oprs) {
-            this.bin = bin;
-            this.operands = oprs;
+        int byteslen = len / 2 + 1;
+        for (; byteslen > 0; byteslen--) {
+            IntData byteVal = context.memory.load(srcAddr++, DataType.B);
+            context.memory.store(destAddr++, byteVal);
         }
 
-        @Override public int bin() {
-            return bin;
-        }
-
-        @Override public DataType[] operands() {
-            return operands;
-        }
-
-        @Override public String mnemonic() {
-            return name().toLowerCase(Locale.ENGLISH);
-        }
-
-        @Override public void execute(List<Operand> oprs) {
-            IntData srclen = oprs.get(0).getValue();
-            int srcAddr = ((Address)oprs.get(1)).getAddress();
-            IntData fillVal;
-            IntData destlen;
-            int destAddr;
-            if (oprs.size() == 5) {
-                fillVal = oprs.get(2).getValue();
-                destlen = oprs.get(3).getValue();
-                destAddr = ((Address)oprs.get(4)).getAddress();
-            } else {
-                fillVal = null;
-                destlen = srclen;
-                destAddr = ((Address)oprs.get(2)).getAddress();
-            }
-
-            int slen = srclen.uint();
-            int dlen = destlen.uint();
-            for (; slen > 0 && dlen >0; slen--, dlen--) {
-                IntData byteVal = context.memory.load(srcAddr++, DataType.B);
-                context.memory.store(destAddr++, byteVal);
-            }
-            for (; dlen > 0; dlen--) {
-                context.memory.store(destAddr++, fillVal);
-            }
-
-            context.register[0] = slen;
-            context.register[1] = srcAddr;
-            context.register[2] = 0;
-            context.register[3] = destAddr;
-            context.register[4] = 0;
-            context.register[5] = 0;
-            // Set flags
-            Calculator.sub(srclen, destlen, context);
-            context.flagV.clear();
-        }
+        context.register[0] = 0;
+        context.register[1] = mostSigSrcAddr;
+        context.register[2] = 0;
+        context.register[3] = mostSigDestAddr;
+        context.flagN.set( isNegativePacked(destAddr, len, context) );
+        context.flagZ.set( isZeroPacked(destAddr, len, context) );
+        context.flagV.clear();
     }
 
-    enum Cmpc implements ICode {
-        CMPC3 (0x29, W,B,B), CMPC5 (0x2d, W,B,B,W,B);
-
-        private final int bin;
-        private final DataType[] operands;
-
-        private Cmpc(int bin, DataType... oprs) {
-            this.bin = bin;
-            this.operands = oprs;
-        }
-
-        @Override public int bin() {
-            return bin;
-        }
-
-        @Override public DataType[] operands() {
-            return operands;
-        }
-
-        @Override public String mnemonic() {
-            return name().toLowerCase(Locale.ENGLISH);
-        }
-
-        @Override public void execute(List<Operand> oprs) {
-            IntData str1len = oprs.get(0).getValue();
-            int str1Addr = ((Address)oprs.get(1)).getAddress();
-            IntData fillVal;
-            IntData str2len;
-            int str2Addr;
-            if (oprs.size() == 5) {
-                fillVal = oprs.get(2).getValue();
-                str2len = oprs.get(3).getValue();
-                str2Addr = ((Address)oprs.get(4)).getAddress();
-            } else {
-                fillVal = null;
-                str2len = str1len;
-                str2Addr = ((Address)oprs.get(2)).getAddress();
-            }
-
-            int s1len = str1len.uint();
-            int s2len = str2len.uint();
-            COMPC: {
-                for (; s1len > 0 && s2len >0; s1len--, s2len--, str1Addr++, str2Addr++) {
-                    IntData str1Val = context.memory.load(str1Addr, DataType.B);
-                    IntData str2Val = context.memory.load(str2Addr, DataType.B);
-                    Calculator.sub(str1Val, str2Val, context);
-                    if (!context.flagZ.get()) {
-                        break COMPC;
-                    }
-                }
-                for (; s1len > 0; s1len--, str1Addr++) {
-                    IntData str1Val = context.memory.load(str1Addr, DataType.B);
-                    Calculator.sub(str1Val, fillVal, context);
-                    if (!context.flagZ.get()) {
-                        break COMPC;
-                    }
-                }
-                for (; s2len > 0; s2len--, str2Addr++) {
-                    IntData str2Val = context.memory.load(str2Addr, DataType.B);
-                    Calculator.sub(fillVal, str2Val, context);
-                    if (!context.flagZ.get()) {
-                        break COMPC;
-                    }
-                }
-            }
-
-            context.register[0] = s1len;
-            context.register[1] = str1Addr;
-            context.register[2] = s2len;
-            context.register[3] = str2Addr;
-            context.flagV.clear();
+    private boolean isNegativePacked(int addr, int len, Context context) {
+        int signAddr = addr + len / 2;
+        byte sign = (byte)(context.memory.load(signAddr, DataType.B).uint() & 0xf);
+        switch (sign) {
+        case 0xa: case 0xc: case 0xe: case 0xf:
+            return false;
+        case 0xb: case 0xd:
+            return true;
+        default:
+            assert false : "Invalid Packed decimal string";
+            return false;
         }
     }
 
-    enum Locc implements ICode {
-        LOCC (0x3a, B,W,B) {
-            @Override protected boolean isDetected(IntData actual, IntData target) {
-                return actual.uint() == target.uint();
-            }
-        },
-        SKPC (0x3b, B,W,B) {
-            @Override protected boolean isDetected(IntData actual, IntData target) {
-                return actual.uint() != target.uint();
-            }
-        };
-
-        private final int bin;
-        private final DataType[] operands;
-
-        private Locc(int bin, DataType... oprs) {
-            this.bin = bin;
-            this.operands = oprs;
-        }
-
-        @Override public int bin() {
-            return bin;
-        }
-
-        @Override public DataType[] operands() {
-            return operands;
-        }
-
-        @Override public String mnemonic() {
-            return name().toLowerCase(Locale.ENGLISH);
-        }
-
-        @Override public void execute(List<Operand> oprs) {
-            IntData target = oprs.get(0).getValue();
-            int len = oprs.get(1).getValue().uint();
-            int addr = ((Address)oprs.get(2)).getAddress();
-
-            for (; len > 0; len--, addr++) {
-                IntData byteVal = context.memory.load(addr, DataType.B);
-                if (isDetected(target, byteVal)) {
-                    break;
-                }
-            }
-            context.register[0] = len;
-            context.register[1] = addr;
-            context.flagN.clear();
-            context.flagZ.set( context.register[0] == 0 );
-            context.flagV.clear();
-            context.flagC.clear();
-        }
-
-        protected abstract boolean isDetected(IntData actual, IntData target);
-    }
-
-    enum Movp implements ICode {
-        MOVP (0x34, W,B,B);
-
-        private final int bin;
-        private final DataType[] operands;
-
-        private Movp(int bin, DataType... oprs) {
-            this.bin = bin;
-            this.operands = oprs;
-        }
-
-        @Override public int bin() {
-            return bin;
-        }
-
-        @Override public DataType[] operands() {
-            return operands;
-        }
-
-        @Override public String mnemonic() {
-            return name().toLowerCase(Locale.ENGLISH);
-        }
-
-        @Override public void execute(List<Operand> oprs) {
-            int len = oprs.get(0).getValue().uint();
-            int srcAddr = ((Address)oprs.get(1)).getAddress();
-            int destAddr = ((Address)oprs.get(2)).getAddress();
-            int mostSigSrcAddr = srcAddr;
-            int mostSigDestAddr = destAddr;
-
-            int byteslen = len / 2 + 1;
-            for (; byteslen > 0; byteslen--) {
-                IntData byteVal = context.memory.load(srcAddr++, DataType.B);
-                context.memory.store(destAddr++, byteVal);
-            }
-
-            context.register[0] = 0;
-            context.register[1] = mostSigSrcAddr;
-            context.register[2] = 0;
-            context.register[3] = mostSigDestAddr;
-            context.flagN.set( isNegativePacked(destAddr, len) );
-            context.flagZ.set( isZeroPacked(destAddr, len) );
-            context.flagV.clear();
-        }
-
-        private boolean isNegativePacked(int addr, int len) {
-            int signAddr = addr + len / 2;
-            byte sign = (byte)(context.memory.load(signAddr, DataType.B).uint() & 0xf);
-            switch (sign) {
-            case 0xa: case 0xc: case 0xe: case 0xf:
-                return false;
-            case 0xb: case 0xd:
-                return true;
-            default:
-                assert false : "Invalid Packed decimal string";
+    private boolean isZeroPacked(int addr, int len, Context context) {
+        int numslen = len / 2;
+        for (; numslen > 0; numslen--) {
+            int val = context.memory.load(addr++, DataType.B).uint();
+            if (val != 0) {
                 return false;
             }
         }
+        return (addr & 0xf0) == 0;
+    }
+}
 
-        private boolean isZeroPacked(int addr, int len) {
-            int numslen = len / 2;
-            for (; numslen > 0; numslen--) {
-                int val = context.memory.load(addr++, DataType.B).uint();
-                if (val != 0) {
-                    return false;
-                }
-            }
-            return (addr & 0xf0) == 0;
+enum EditpcExec implements CodeExec {
+    EditpcExec;
+
+    // not thread safe
+    private final Queue<Byte> srcDigits = new ArrayDeque<>();
+    private final List<Byte> destChars = new ArrayList<>();
+    private Context context;
+
+    @Override
+    public void execute(List<Operand> oprs, Context context) {
+        this.context = context;
+        int srcLen = oprs.get(0).getValue().uint();
+        int srcAddr = ((Address)oprs.get(1)).getAddress();
+        int ptnAddr = ((Address)oprs.get(2)).getAddress();
+
+        assert srcLen <= 31 : "Reserved operand fault";
+
+        context.flagN.set( isNegativePacked(srcAddr, srcLen) );
+        setSignChar((byte)(context.flagN.get() ? '-' : ' '));
+        setFillChar((byte)' ');
+        initDigits(srcAddr, srcLen);
+        context.flagV.clear();
+        context.flagC.clear();
+
+        int endOpAddr = execOps(ptnAddr);
+
+        // after execution
+        byte[] charBytes = new byte[destChars.size()];
+        for (int i = 0; i < destChars.size(); ++i) {
+            charBytes[i] = destChars.get(i);
         }
+
+        int destAddr = ((Address)oprs.get(3)).getAddress();
+        context.memory.storeBytes(destAddr, charBytes, charBytes.length);
+
+        context.register[0] = srcLen;
+        context.register[1] = srcAddr;
+        context.register[2] = 0;
+        context.register[3] = endOpAddr;
+        context.register[4] = 0;
+        context.register[5] = destAddr + charBytes.length;
     }
 
-    enum Editpc implements ICode {
-        EDITPC (0x38, W,B,B,B);
-
-        private final int bin;
-        private final DataType[] operands;
-
-        private Editpc(int bin, DataType... oprs) {
-            this.bin = bin;
-            this.operands = oprs;
-        }
-
-        @Override public int bin() {
-            return bin;
-        }
-
-        @Override public DataType[] operands() {
-            return operands;
-        }
-
-        @Override public String mnemonic() {
-            return name().toLowerCase(Locale.ENGLISH);
-        }
-
-        private final Queue<Byte> srcDigits = new ArrayDeque<>();
-        private final List<Byte> destChars = new ArrayList<>();
-        private int mostSignificantDigitAddr;
-
-        @Override public void execute(List<Operand> oprs) {
-            int srcLen = oprs.get(0).getValue().uint();
-            int srcAddr = ((Address)oprs.get(1)).getAddress();
-            int ptnAddr = ((Address)oprs.get(2)).getAddress();
-
-            assert srcLen <= 31 : "Reserved operand fault";
-
-            context.flagN.set( isNegativePacked(srcAddr, srcLen) );
-            setSignChar((byte)(context.flagN.get() ? '-' : ' '));
-            setFillChar((byte)' ');
-            initDigits(srcAddr, srcLen);
-            context.flagV.clear();
-            context.flagC.clear();
-
-            int endOpAddr = execOps(ptnAddr);
-
-            // after execution
-            byte[] charBytes = new byte[destChars.size()];
-            for (int i = 0; i < destChars.size(); ++i) {
-                charBytes[i] = destChars.get(i);
+    private int execOps(int ptnAddr) {
+        do {
+            int code = context.memory.load(ptnAddr, DataType.B).uint();
+            if (code == 0x0) {
+                doEnd();
+                return ptnAddr;
+            } else if (code == 0x1) {
+                doEndFloat();
+            } else if (0x91 <= code && code <= 0x9f) {
+                doMove(code & 0xf);
+            } else if (0xa1 <= code && code <= 0xaf) {
+                doFloat(code & 0xf);
+            } else {
+                assert false : "Unimplemented editpc operand :" + code;
             }
+            ++ptnAddr;
+        } while (true);
+    }
 
-            int destAddr = ((Address)oprs.get(3)).getAddress();
-            context.memory.storeBytes(destAddr, charBytes, charBytes.length);
-
-            context.register[0] = srcLen;
-            context.register[1] = srcAddr;
-            context.register[2] = 0;
-            context.register[3] = endOpAddr;
-            context.register[4] = 0;
-            context.register[5] = destAddr + charBytes.length;
-        }
-
-        private int execOps(int ptnAddr) {
-            do {
-                int code = context.memory.load(ptnAddr, DataType.B).uint();
-                if (code == 0x0) {
-                    doEnd(context);
-                    return ptnAddr;
-                } else if (code == 0x1) {
-                    doEndFloat(context);
-                } else if (0x91 <= code && code <= 0x9f) {
-                    doMove(code & 0xf);
-                } else if (0xa1 <= code && code <= 0xaf) {
-                    doFloat(code & 0xf);
-                } else {
-                    assert false : "Unimplemented editpc operand :" + code;
-                }
-                ++ptnAddr;
-            } while (true);
-        }
-
-        private void doEnd(Context context) {
-            assert srcDigits.size() == 0 : "Reserved operand abort";
-            if (context.flagN.get()) {
-                context.flagZ.clear();
-            }
-        }
-
-        private void doEndFloat(Context context) {
-            if (!hasSignificanceSet(context)) {
-                destChars.add(getSignChar(context));
-                setSignificance(context);
-            }
-        }
-
-        private void doMove(int count) {
-            assert count <= srcDigits.size() : "Reserved operand abort";
-
-            for (; count > 0; count--) {
-                byte digit = srcDigits.remove();
-                if (digit != 0) {
-                    setSignificance(context);
-                    clearZero(context);
-                }
-                if (!hasSignificanceSet(context)) {
-                    destChars.add(getFillChar(context));
-                } else {
-                    destChars.add(asciiNumCode(digit));
-                }
-            }
-        }
-
-        private void doFloat(int count) {
-            assert count <= srcDigits.size() : "Reserved operand abort";
-
-            for (; count > 0; count--) {
-                byte digit = srcDigits.remove();
-                if (digit != 0) {
-                    if (!hasSignificanceSet(context)) {
-                        destChars.add(getSignChar(context));
-                    }
-                    setSignificance(context);
-                    clearZero(context);
-                }
-                if (!hasSignificanceSet(context)) {
-                    destChars.add(getFillChar(context));
-                } else {
-                    destChars.add(asciiNumCode(digit));
-                }
-            }
-        }
-
-        private byte getFillChar(Context context) {
-            return (byte)context.register[2];
-        }
-
-        private void setFillChar(byte c) {
-            context.register[2] &= ~0xff;
-            context.register[2] |= c;
-        }
-
-        private byte getSignChar(Context context) {
-            return (byte)(context.register[2] >> 8);
-        }
-
-        private void setSignChar(byte c) {
-            context.register[2] &= ~0xff00;
-            context.register[2] |= c << 8;
-        }
-
-        private boolean hasSignificanceSet(Context context) {
-            return context.flagC.get();
-        }
-
-        private void setSignificance(Context context) {
-            context.flagC.set();
-        }
-
-        private void clearZero(Context context) {
+    private void doEnd() {
+        assert srcDigits.size() == 0 : "Reserved operand abort";
+        if (context.flagN.get()) {
             context.flagZ.clear();
         }
+    }
 
-        private byte asciiNumCode(byte val) {
-            return (byte)(val + '0');
+    private void doEndFloat() {
+        if (!hasSignificanceSet()) {
+            destChars.add(getSignChar());
+            setSignificance();
         }
+    }
 
-        private boolean isNegativePacked(int addr, int len) {
-            int signAddr = addr + len / 2;
-            byte sign = (byte)(context.memory.load(signAddr, DataType.B).uint() & 0xf);
-            switch (sign) {
-            case 0xa: case 0xc: case 0xe: case 0xf:
-                return false;
-            case 0xb: case 0xd:
-                return true;
-            default:
-                assert false : "Invalid Packed decimal string";
-                return false;
+    private void doMove(int count) {
+        assert count <= srcDigits.size() : "Reserved operand abort";
+
+        for (; count > 0; count--) {
+            byte digit = srcDigits.remove();
+            if (digit != 0) {
+                setSignificance();
+                clearZero();
+            }
+            if (!hasSignificanceSet()) {
+                destChars.add(getFillChar());
+            } else {
+                destChars.add(asciiNumCode(digit));
             }
         }
+    }
 
-        private void initDigits(int addr, int len) {
-            srcDigits.clear();
-            destChars.clear();
+    private void doFloat(int count) {
+        assert count <= srcDigits.size() : "Reserved operand abort";
 
-            if (len % 2 == 0) {
-                byte firstDigit = (byte)(context.memory.load(addr++, DataType.B).uint() & 0xf);
-                srcDigits.add(firstDigit);
-                --len;
-            }
-
-            while (len > 0) {
-                int twoDigits = context.memory.load(addr++, DataType.B).uint();
-                srcDigits.add((byte)(twoDigits >>> 4));
-                --len;
-                if (len <= 0) {
-                    break;
+        for (; count > 0; count--) {
+            byte digit = srcDigits.remove();
+            if (digit != 0) {
+                if (!hasSignificanceSet()) {
+                    destChars.add(getSignChar());
                 }
-                srcDigits.add((byte)(twoDigits & 0xf));
-                --len;
+                setSignificance();
+                clearZero();
             }
+            if (!hasSignificanceSet()) {
+                destChars.add(getFillChar());
+            } else {
+                destChars.add(asciiNumCode(digit));
+            }
+        }
+    }
+
+    private byte getFillChar() {
+        return (byte)context.register[2];
+    }
+
+    private void setFillChar(byte c) {
+        context.register[2] &= ~0xff;
+        context.register[2] |= c;
+    }
+
+    private byte getSignChar() {
+        return (byte)(context.register[2] >> 8);
+    }
+
+    private void setSignChar(byte c) {
+        context.register[2] &= ~0xff00;
+        context.register[2] |= c << 8;
+    }
+
+    private boolean hasSignificanceSet() {
+        return context.flagC.get();
+    }
+
+    private void setSignificance() {
+        context.flagC.set();
+    }
+
+    private void clearZero() {
+        context.flagZ.clear();
+    }
+
+    private byte asciiNumCode(byte val) {
+        return (byte)(val + '0');
+    }
+
+    private boolean isNegativePacked(int addr, int len) {
+        int signAddr = addr + len / 2;
+        byte sign = (byte)(context.memory.load(signAddr, DataType.B).uint() & 0xf);
+        switch (sign) {
+        case 0xa: case 0xc: case 0xe: case 0xf:
+            return false;
+        case 0xb: case 0xd:
+            return true;
+        default:
+            assert false : "Invalid Packed decimal string";
+            return false;
+        }
+    }
+
+    private void initDigits(int addr, int len) {
+        srcDigits.clear();
+        destChars.clear();
+
+        if (len % 2 == 0) {
+            byte firstDigit = (byte)(context.memory.load(addr++, DataType.B).uint() & 0xf);
+            srcDigits.add(firstDigit);
+            --len;
+        }
+
+        while (len > 0) {
+            int twoDigits = context.memory.load(addr++, DataType.B).uint();
+            srcDigits.add((byte)(twoDigits >>> 4));
+            --len;
+            if (len <= 0) {
+                break;
+            }
+            srcDigits.add((byte)(twoDigits & 0xf));
+            --len;
         }
     }
 }
 
 class Nullcode extends Opcode {
     private final short val;
-    private final DataType[] operands = new DataType[0];
 
     protected Nullcode(int val) {
         super(null);
         this.val = (short)val;
     }
 
-    @Override public DataType[] operands() {
-        return operands;
+    @Override
+    public DataType[] operands() {
+        return new DataType[0];
     }
 
-    @Override public String mnemonic() {
+    @Override
+    public String mnemonic() {
         return String.format(".word 0x%x", val);
     }
 
-    @Override public int len() {
+    @Override
+    public int len() {
         return 2;
     }
 
-    @Override public void execute(List<Operand> oprs, Context context) {
+    @Override
+    public void execute(List<Operand> oprs, Context c) {
         System.err.printf("Error: unknown code: 0x%x%n", val);
         throw new RuntimeException();
     }
 }
+
 
 class Calculator {
     public static IntData add(IntData arg1, IntData arg2, boolean addCarry, Context context) {
@@ -2477,6 +1708,7 @@ class Calculator {
         }
     }
 }
+
 
 /* Not Implemented
     HALT (0x0), REI   (0x2),
