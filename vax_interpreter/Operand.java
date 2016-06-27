@@ -10,12 +10,20 @@ abstract class Operand {
     protected final Context context;
     public final DataType dataType;
 
-    public abstract IntData getValue();
-    public abstract void setValue(IntData val);
+    public abstract NumData getValue();
+    public abstract void setValue(NumData val);
 
     protected Operand(Context context, DataType dataType) {
         this.context = context;
         this.dataType = dataType;
+    }
+
+    public IntData getIntValue() {
+        return (IntData)getValue();
+    }
+
+    public FloatData getFloatValue() {
+        return (FloatData)getValue();
     }
 
     public static Operand fetch(Context context, DataType type) {
@@ -93,12 +101,12 @@ abstract class Address extends Operand {
     }
 
     @Override
-    public IntData getValue() {
+    public NumData getValue() {
         return context.memory.load(addr, dataType);
     }
 
     @Override
-    public void setValue(IntData val) {
+    public void setValue(NumData val) {
         context.memory.store(addr, val);
     }
 
@@ -111,7 +119,7 @@ abstract class Address extends Operand {
 class BranchAddress extends Address {
     protected BranchAddress(Context context, DataType dataType) {
         super(context, dataType);
-        IntData offset = context.memory.load(context.register[PC], dataType);
+        IntData offset = context.memory.loadInt(context.register[PC], dataType);
         context.register[PC] += dataType.size;
         this.addr = context.pc() + offset.sint();
         this.len = dataType.size;
@@ -131,9 +139,9 @@ class Literal extends Address {
     }
 
     @Override
-    public IntData getValue() {
+    public NumData getValue() {
         ByteBuffer bbuf = ByteBuffer.allocate(dataType.size).order(ByteOrder.LITTLE_ENDIAN);
-        int val = context.memory.load(addr, DataType.B).uint();
+        int val = context.memory.loadInt(addr, DataType.B).uint();
         switch (dataType) {
         default:
         case B: case W: case L: case Q: case O:
@@ -142,15 +150,15 @@ class Literal extends Address {
             return new IntData(bbuf.putInt(val << 4 | 0x4000).array(),
                                dataType);
         case D:
-            return new IntData(bbuf.putInt(val << 4 | 0x4000).putInt(0).array(),
-                               dataType);
+            return new FloatData(bbuf.putInt(val << 4 | 0x4000).putInt(0).array(),
+                                 dataType);
         case G:
-            return new IntData(bbuf.putInt(val << 1 | 0x4000).putInt(0).array(),
-                               dataType);
+            return new FloatData(bbuf.putInt(val << 1 | 0x4000).putInt(0).array(),
+                                 dataType);
         case H:
-            return new IntData(bbuf.putInt(val >> 3 | 0x4000 | val << 29)
-                                   .putInt(0).putInt(0).putInt(0).array(),
-                               dataType);
+            return new FloatData(bbuf.putInt(val >> 3 | 0x4000 | val << 29)
+                                     .putInt(0).putInt(0).putInt(0).array(),
+                                 dataType);
         }
     }
 
@@ -191,7 +199,7 @@ class Register extends Operand {
     }
 
     @Override
-    public void setValue(IntData val) {
+    public void setValue(NumData val) {
         context.setRegisterValue(regNum, val);
     }
 
@@ -241,7 +249,7 @@ class AutoIncrement extends Address {
     private final int regNum;
     @Override public String mnemonic() {
         if (isPC(regNum)) {
-            IntData imm = context.memory.load(addr, dataType);
+            NumData imm = context.memory.load(addr, dataType);
             return "$" + imm.hexString() + dataType.annotation;
         } else {
             return "(" + regStr(regNum) + ")+";
@@ -253,7 +261,7 @@ class AutoIncrementDeferred extends Address {
     protected AutoIncrementDeferred(Context context, DataType dataType) {
         super(context, dataType);
         this.regNum = context.readText() & 0xf;
-        this.addr = context.memory.load(context.register[regNum], DataType.L).uint();
+        this.addr = context.memory.loadInt(context.register[regNum], DataType.L).uint();
         context.register[regNum] += 4;
         this.len = isPC(regNum) ? 5 : 1;
     }
@@ -276,7 +284,7 @@ class Displacement extends Address {
         DataType dispType = size == 1 ? DataType.B :
                             size == 2 ? DataType.W :
                             /*      4*/ DataType.L;
-        this.disp = context.memory.load(context.register[PC], dispType).sint();
+        this.disp = context.memory.loadInt(context.register[PC], dispType).sint();
         context.register[PC] += size;
         this.regNum = head & 0xf;
         this.addr = disp + context.register[regNum];
@@ -298,7 +306,7 @@ class DisplacementDeferred extends Address {
     protected DisplacementDeferred(Context context, DataType dataType) {
         super(context, dataType);
         this.displacement = new Displacement(context, dataType);
-        this.addr = context.memory.load(displacement.addr, DataType.L).uint();
+        this.addr = context.memory.loadInt(displacement.addr, DataType.L).uint();
         this.len = displacement.len();
     }
 

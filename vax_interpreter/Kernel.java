@@ -29,14 +29,14 @@ class Kernel {
 
         if (sysent == Sysent.indir) {
             /* indirect */
-            syscallNum = context.memory.load(params, DataType.L).uint() & 0x3f;
+            syscallNum = context.memory.loadInt(params, DataType.L).uint() & 0x3f;
             params += NBPW;
             sysent = Sysent.getSysent(syscallNum);
         }
 
         ArrayList<Integer> args = new ArrayList<>(sysent.narg);
         for (int i = 0; i < sysent.narg; i++) {
-            args.add(context.memory.load(params, DataType.L).sint());
+            args.add(context.memory.loadInt(params, DataType.L).sint());
             params += NBPW;
         }
 
@@ -575,7 +575,7 @@ class Kernel {
                 int argp = args.get(1);
                 if (argp != 0) {
                     do {
-                        int ap = context.memory.load(argp, DataType.L).uint();
+                        int ap = context.memory.loadInt(argp, DataType.L).uint();
                         argp += NBPW;
                         if (ap == 0) {
                             break;
@@ -592,7 +592,7 @@ class Kernel {
 
                     int envp = args.get(2);
                     do {
-                        int ap = context.memory.load(envp, DataType.L).uint();
+                        int ap = context.memory.loadInt(envp, DataType.L).uint();
                         envp += NBPW;
                         if (ap == 0) {
                             break;

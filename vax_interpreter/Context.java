@@ -61,7 +61,7 @@ class Context {
         }
     }
 
-    public void setRegisterValue(int regNum, IntData val) {
+    public void setRegisterValue(int regNum, NumData val) {
         if (val.size() >= 4) {
             ByteBuffer bbuf = ByteBuffer.wrap(val.bytes()).order(ByteOrder.LITTLE_ENDIAN);
             for (int i = 0; i < val.size(); i += 4) {
@@ -71,9 +71,10 @@ class Context {
                 register[regNum++] = bbuf.getInt();
             }
         } else {
-            int mask = (int)(0xffffffffL << (val.size() << 3));
+            IntData intval = (IntData)val;
+            int mask = (int)(0xffffffffL << (intval.size() << 3));
             register[regNum] &= mask;
-            register[regNum] |= val.uint() & ~mask;
+            register[regNum] |= intval.uint() & ~mask;
         }
     }
 
@@ -81,21 +82,21 @@ class Context {
         push(new IntData(val));
     }
 
-    public void push(IntData val) {
+    public void push(NumData val) {
         assert val.size() == 4 : "Invalid stack push";
         register[SP] -= 4;
         memory.store(register[SP], val);
     }
 
     public int pop() {
-        IntData val = memory.load(register[SP], DataType.L);
+        IntData val = memory.loadInt(register[SP], DataType.L);
         register[SP] += 4;
         return val.sint();
     }
 
     public int readText() {
         if (pc() < memory.textSize) {
-            return memory.load(register[PC]++, DataType.B).uint();
+            return memory.loadInt(register[PC]++, DataType.B).uint();
         } else {
             return -1;
         }
@@ -103,7 +104,7 @@ class Context {
 
     public int lookAhead() {
         if (pc() < memory.textSize) {
-            return memory.load(pc(), DataType.B).uint();
+            return memory.loadInt(pc(), DataType.B).uint();
         } else {
             return -1;
         }
@@ -197,13 +198,26 @@ class Context {
             return true;
         }
 
-        public IntData load(int rawAddr, DataType type) {
+        public NumData load(int rawAddr, DataType type) {
             int addr = getMemAddress(rawAddr);
-            return new IntData(Arrays.copyOfRange(mem, addr, addr + type.size),
-                               type);
+            if (type.isFloatDataType()) {
+                return new FloatData(Arrays.copyOfRange(mem, addr, addr + type.size),
+                                     type);
+            } else {
+                return new IntData(Arrays.copyOfRange(mem, addr, addr + type.size),
+                                   type);
+            }
         }
 
-        public void store(int rawAddr, IntData val) {
+        public IntData loadInt(int rawAddr, DataType type) {
+            return (IntData)load(rawAddr, type);
+        }
+
+        public FloatData loadFloat(int rawAddr, DataType type) {
+            return (FloatData)load(rawAddr, type);
+        }
+
+        public void store(int rawAddr, NumData val) {
             int addr = getMemAddress(rawAddr);
             System.arraycopy(val.bytes(), 0, mem, addr, val.size());
         }

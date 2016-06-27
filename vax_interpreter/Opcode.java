@@ -64,6 +64,13 @@ enum DataType {
         this.size = sz;
         this.annotation = ann;
     }
+    public boolean isFloatDataType() {
+        int enumOrd = ordinal();
+        return enumOrd == F.ordinal() ||
+               enumOrd == D.ordinal() ||
+               enumOrd == G.ordinal() ||
+               enumOrd == H.ordinal();
+    }
 }
 
 class Opcode {
@@ -325,7 +332,7 @@ enum MovExec implements CodeExec {
     MovExec;
     @Override
     public void execute(List<Operand> oprs, Context context) {
-        IntData srcVal = oprs.get(0).getValue();
+        IntData srcVal = oprs.get(0).getIntValue();
         Operand dest = oprs.get(1);
         dest.setValue(srcVal);
         context.flagN.set( srcVal.isNegValue() );
@@ -338,7 +345,7 @@ enum MovzExec implements CodeExec {
     MovzExec;
     @Override
     public void execute(List<Operand> oprs, Context context) {
-        IntData srcVal = oprs.get(0).getValue();
+        IntData srcVal = oprs.get(0).getIntValue();
         Operand dest = oprs.get(1);
         IntData setVal = new IntData(srcVal.uint(), dest.dataType);
         dest.setValue(setVal);
@@ -353,7 +360,7 @@ enum PushExec implements CodeExec {
     PushExec;
     @Override
     public void execute(List<Operand> oprs, Context context) {
-        IntData srcVal = oprs.get(0).getValue();
+        IntData srcVal = oprs.get(0).getIntValue();
         context.push(srcVal);
         context.flagN.set( srcVal.isNegValue() );
         context.flagZ.set( srcVal.isZeroValue() );
@@ -390,7 +397,7 @@ enum McomExec implements CodeExec {
     McomExec;
     @Override
     public void execute(List<Operand> oprs, Context context) {
-        IntData srcVal = oprs.get(0).getValue();
+        IntData srcVal = oprs.get(0).getIntValue();
         Operand dest = oprs.get(1);
         IntData com = IntData.bitInvert(srcVal);
         dest.setValue(com);
@@ -405,7 +412,7 @@ enum MnegExec implements CodeExec {
     MnegExec;
     @Override
     public void execute(List<Operand> oprs, Context context) {
-        IntData srcVal = oprs.get(0).getValue();
+        IntData srcVal = oprs.get(0).getIntValue();
         Operand dest = oprs.get(1);
         IntData neg = Calculator.sub(new IntData(0, srcVal.dataType()), srcVal, context);
         dest.setValue(neg);
@@ -416,15 +423,15 @@ enum FmnegExec implements CodeExec {
     FmnegExec;
     @Override
     public void execute(List<Operand> oprs, Context context) {
-        IntData srcVal = oprs.get(0).getValue();
+        FloatData srcVal = oprs.get(0).getFloatValue();
 
         assert !srcVal.isMinusZeroFloatValue() : "Reserved operand fault";
 
-        IntData neg;
+        FloatData neg;
         if (srcVal.isZeroValue()) {
             neg = srcVal;
         } else {
-            neg = IntData.negativeFloat(srcVal);
+            neg = FloatData.negativeFloat(srcVal);
         }
         Operand dest = oprs.get(1);
         dest.setValue(neg);
@@ -439,8 +446,8 @@ enum AddExec implements CodeExec {
     AddExec;
     @Override
     public void execute(List<Operand> oprs, Context context) {
-        IntData arg1 = oprs.get(1).getValue();
-        IntData arg2 = oprs.get(0).getValue();
+        IntData arg1 = oprs.get(1).getIntValue();
+        IntData arg2 = oprs.get(0).getIntValue();
         Operand dest = oprs.size() == 3 ? oprs.get(2) : oprs.get(1);
         IntData sum = Calculator.add(arg1, arg2, context);
         dest.setValue(sum);
@@ -451,8 +458,8 @@ enum SubExec implements CodeExec {
     SubExec;
     @Override
     public void execute(List<Operand> oprs, Context context) {
-        IntData arg1 = oprs.get(1).getValue();
-        IntData arg2 = oprs.get(0).getValue();
+        IntData arg1 = oprs.get(1).getIntValue();
+        IntData arg2 = oprs.get(0).getIntValue();
         Operand dest = oprs.size() == 3 ? oprs.get(2) : oprs.get(1);
         IntData diff = Calculator.sub(arg1, arg2, context);
         dest.setValue(diff);
@@ -463,8 +470,8 @@ enum MulExec implements CodeExec {
     MulExec;
     @Override
     public void execute(List<Operand> oprs, Context context) {
-        IntData arg1 = oprs.get(0).getValue();
-        IntData arg2 = oprs.get(1).getValue();
+        IntData arg1 = oprs.get(0).getIntValue();
+        IntData arg2 = oprs.get(1).getIntValue();
         Operand dest = oprs.size() == 3 ? oprs.get(2) : oprs.get(1);
         IntData prod = Calculator.mul(arg1, arg2, context);
         dest.setValue(prod);
@@ -475,8 +482,8 @@ enum DivExec implements CodeExec {
     DivExec;
     @Override
     public void execute(List<Operand> oprs, Context context) {
-        IntData divisor = oprs.get(0).getValue();
-        IntData dividend = oprs.get(1).getValue();
+        IntData divisor = oprs.get(0).getIntValue();
+        IntData dividend = oprs.get(1).getIntValue();
         Operand dest = oprs.size() == 3 ? oprs.get(2) : oprs.get(1);
         IntData quo = Calculator.div(dividend, divisor, context);
 
@@ -486,8 +493,8 @@ enum DivExec implements CodeExec {
             if (oprs.size() == 3) {
                 dest.setValue(dividend);
             }
-            context.flagN.set( dest.getValue().isNegValue() );
-            context.flagZ.set( dest.getValue().isZeroValue() );
+            context.flagN.set( dest.getIntValue().isNegValue() );
+            context.flagZ.set( dest.getIntValue().isZeroValue() );
             context.flagC.clear();
         }
     }
@@ -497,8 +504,8 @@ enum BitExec implements CodeExec {
     BitExec;
     @Override
     public void execute(List<Operand> oprs, Context context) {
-        IntData arg1 = oprs.get(1).getValue();
-        IntData arg2 = oprs.get(0).getValue();
+        IntData arg1 = oprs.get(1).getIntValue();
+        IntData arg2 = oprs.get(0).getIntValue();
         IntData testVal = new IntData(arg1.uint() & arg2.uint(), arg1.dataType());
         context.flagN.set( testVal.isNegValue() );
         context.flagZ.set( testVal.isZeroValue() );
@@ -510,8 +517,8 @@ enum BisExec implements CodeExec {
     BisExec;
     @Override
     public void execute(List<Operand> oprs, Context context) {
-        IntData arg1 = oprs.get(1).getValue();
-        IntData arg2 = oprs.get(0).getValue();
+        IntData arg1 = oprs.get(1).getIntValue();
+        IntData arg2 = oprs.get(0).getIntValue();
         IntData bisVal = new IntData(arg1.uint() | arg2.uint(), arg1.dataType());
         Operand dest = oprs.size() == 3 ? oprs.get(2) : oprs.get(1);
         dest.setValue(bisVal);
@@ -525,8 +532,8 @@ enum BicExec implements CodeExec {
     BicExec;
     @Override
     public void execute(List<Operand> oprs, Context context) {
-        IntData arg1 = oprs.get(1).getValue();
-        IntData arg2 = oprs.get(0).getValue();
+        IntData arg1 = oprs.get(1).getIntValue();
+        IntData arg2 = oprs.get(0).getIntValue();
         IntData bicVal = new IntData(arg1.uint() & ~arg2.uint(), arg1.dataType());
         Operand dest = oprs.size() == 3 ? oprs.get(2) : oprs.get(1);
         dest.setValue(bicVal);
@@ -540,8 +547,8 @@ enum XorExec implements CodeExec {
     XorExec;
     @Override
     public void execute(List<Operand> oprs, Context context) {
-        IntData arg1 = oprs.get(1).getValue();
-        IntData arg2 = oprs.get(0).getValue();
+        IntData arg1 = oprs.get(1).getIntValue();
+        IntData arg2 = oprs.get(0).getIntValue();
         IntData xorVal = new IntData(arg1.uint() ^  arg2.uint(), arg1.dataType());
         Operand dest = oprs.size() == 3 ? oprs.get(2) : oprs.get(1);
         dest.setValue(xorVal);
@@ -568,7 +575,7 @@ enum IncExec implements CodeExec {
     IncExec;
     @Override
     public void execute(List<Operand> oprs, Context context) {
-        IntData arg = oprs.get(0).getValue();
+        IntData arg = oprs.get(0).getIntValue();
         Operand dest = oprs.get(0);
         IntData sum = Calculator.add(arg, new IntData(1, arg.dataType()), context);
         dest.setValue(sum);
@@ -579,7 +586,7 @@ enum DecExec implements CodeExec {
     DecExec;
     @Override
     public void execute(List<Operand> oprs, Context context) {
-        IntData arg = oprs.get(0).getValue();
+        IntData arg = oprs.get(0).getIntValue();
         Operand dest = oprs.get(0);
         IntData diff = Calculator.sub(arg, new IntData(1, arg.dataType()), context);
         dest.setValue(diff);
@@ -610,8 +617,8 @@ enum AshExec implements CodeExec {
 
     @Override
     public void execute(List<Operand> oprs, Context context) {
-        int count = oprs.get(0).getValue().sint();
-        IntData srcVal = oprs.get(1).getValue();
+        int count = oprs.get(0).getIntValue().sint();
+        IntData srcVal = oprs.get(1).getIntValue();
         long src = srcVal.slong();
         Operand dest = oprs.get(2);
 
@@ -639,7 +646,7 @@ enum TstExec implements CodeExec {
     TstExec;
     @Override
     public void execute(List<Operand> oprs, Context context) {
-        IntData srcVal = oprs.get(0).getValue();
+        IntData srcVal = oprs.get(0).getIntValue();
         context.flagN.set( srcVal.isNegValue() );
         context.flagZ.set( srcVal.isZeroValue() );
         context.flagV.clear();
@@ -651,8 +658,8 @@ enum CmpExec implements CodeExec {
     CmpExec;
     @Override
     public void execute(List<Operand> oprs, Context context) {
-        IntData lhs = oprs.get(0).getValue();
-        IntData rhs = oprs.get(1).getValue();
+        IntData lhs = oprs.get(0).getIntValue();
+        IntData rhs = oprs.get(1).getIntValue();
         context.flagN.set( lhs.sint() < rhs.sint() );
         context.flagZ.set( lhs.sint() == rhs.sint() );
         context.flagV.clear();
@@ -676,8 +683,8 @@ enum ExtExec implements CodeExec {
 
     @Override
     public void execute(List<Operand> oprs, Context context) {
-        int pos = oprs.get(0).getValue().uint();
-        int size = oprs.get(1).getValue().uint();
+        int pos = oprs.get(0).getIntValue().uint();
+        int size = oprs.get(1).getIntValue().uint();
         Operand base = oprs.get(2);
         Operand dest = oprs.get(3);
 
@@ -698,8 +705,8 @@ enum ExtExec implements CodeExec {
                 int addr = ((Address)base).getAddress() + (pos >>> 5);
                 pos = pos & 31;
                 srcVal =
-                    ((long)context.memory.load(addr + 4, DataType.L).uint() << 32) |
-                    context.memory.load(addr, DataType.L).uint();
+                    ((long)context.memory.loadInt(addr + 4, DataType.L).uint() << 32) |
+                    context.memory.loadInt(addr, DataType.L).uint();
             }
 
             int lSpace = 64 - (pos + size);
@@ -722,13 +729,13 @@ enum InsvExec implements CodeExec {
     InsvExec;
     @Override
     public void execute(List<Operand> oprs, Context context) {
-        int size = oprs.get(2).getValue().uint();
+        int size = oprs.get(2).getIntValue().uint();
 
         assert size <= 32 : "Reserved operand fault";
 
         if (size != 0) {
-            int pos = oprs.get(1).getValue().uint();
-            long srcVal = (long)oprs.get(0).getValue().uint() << pos;
+            int pos = oprs.get(1).getIntValue().uint();
+            long srcVal = (long)oprs.get(0).getIntValue().uint() << pos;
             Operand base = oprs.get(3);
             if (base instanceof Register) {
                 assert (pos & 0xffffffffL) <= 31 : "Reserved operand fault";
@@ -745,8 +752,8 @@ enum InsvExec implements CodeExec {
                 pos = pos & 31;
 
                 long orgVal =
-                    ((long)context.memory.load(addr + 4, DataType.L).uint() << 32) |
-                    context.memory.load(addr, DataType.L).uint();
+                    ((long)context.memory.loadInt(addr + 4, DataType.L).uint() << 32) |
+                    context.memory.loadInt(addr, DataType.L).uint();
                 long mask = (~(0xffffffffffffffffL << size)) << pos;
                 long insVal = (orgVal & ~mask) | (srcVal & mask);
                 context.memory.store(addr, new IntData(insVal, DataType.Q));
@@ -896,7 +903,7 @@ enum BbExec implements CodeExec {
     };
 
     @Override public void execute(List<Operand> oprs, Context context) {
-        int pos = oprs.get(0).getValue().uint();
+        int pos = oprs.get(0).getIntValue().uint();
         Operand base = oprs.get(1);
         Address dest = (Address)oprs.get(2);
 
@@ -914,7 +921,7 @@ enum BbExec implements CodeExec {
             }
         } else {
             int addr = ((Address)base).getAddress() + (pos >> 3);
-            int targetByte = context.memory.load(addr, DataType.B).uint();
+            int targetByte = context.memory.loadInt(addr, DataType.B).uint();
             int bit = 1 << (pos & 7);
             isSet = (targetByte & bit) != 0;
             if (doesSetBit()) {
@@ -956,7 +963,7 @@ enum BlbExec implements CodeExec {
 
     @Override
     public void execute(List<Operand> oprs, Context context) {
-        IntData srcVal = oprs.get(0).getValue();
+        IntData srcVal = oprs.get(0).getIntValue();
         boolean isSet = (srcVal.uint() & 1) == 1;
         if (isSet == doesBranchOnSet()) {
             Address dest = (Address)oprs.get(1);
@@ -984,14 +991,14 @@ enum CallExec implements CodeExec {
     @Override
     public void execute(List<Operand> oprs, Context context) {
         if (callType() == 'S') {
-            IntData nArgs = oprs.get(0).getValue();
+            IntData nArgs = oprs.get(0).getIntValue();
             context.push(nArgs);
         }
         int preSp = context.register[SP];
         context.register[SP] &= ~0x3;
 
         int addr = ((Address)oprs.get(1)).getAddress();
-        int entryMask = context.memory.load(addr, DataType.W).uint();
+        int entryMask = context.memory.loadInt(addr, DataType.W).uint();
         for (int i = 11; i >= 0; i--) {
             if ((entryMask & 1 << i) != 0) {
                 context.push(context.register[i]);
@@ -1067,7 +1074,7 @@ enum ChmkExec implements CodeExec {
     ChmkExec;
     @Override
     public void execute(List<Operand> oprs, Context context) {
-        int codeNum = oprs.get(0).getValue().uint();
+        int codeNum = oprs.get(0).getIntValue().uint();
         Kernel.syscall(codeNum, context);
     }
 }
@@ -1076,9 +1083,9 @@ enum CaseExec implements CodeExec {
     CaseExec;
     @Override
     public void execute(List<Operand> oprs, Context context) {
-        IntData sel = oprs.get(0).getValue();
-        IntData base = oprs.get(1).getValue();
-        IntData limit = oprs.get(2).getValue();
+        IntData sel = oprs.get(0).getIntValue();
+        IntData base = oprs.get(1).getIntValue();
+        IntData limit = oprs.get(2).getIntValue();
         IntData offset = new IntData(sel.sint() - base.sint(), sel.dataType());
 
         Calculator.sub(offset, limit, context);
@@ -1086,7 +1093,7 @@ enum CaseExec implements CodeExec {
 
         if (context.flagC.get() || context.flagZ.get()) {
             int dispAddr = context.register[PC] + offset.uint() * 2;
-            IntData disp = context.memory.load(dispAddr, DataType.W);
+            IntData disp = context.memory.loadInt(dispAddr, DataType.W);
             context.register[PC] += disp.sint();
         } else {
             context.register[PC] += (limit.uint() + 1) * 2;
@@ -1110,9 +1117,9 @@ enum AobExec implements CodeExec {
 
     @Override
     public void execute(List<Operand> oprs, Context context) {
-        IntData limit = oprs.get(0).getValue();
+        IntData limit = oprs.get(0).getIntValue();
         Operand indexOpr = oprs.get(1);
-        IntData index = indexOpr.getValue();
+        IntData index = indexOpr.getIntValue();
         Address dest = (Address)oprs.get(2);
         boolean preFlagC = context.flagC.get();
 
@@ -1145,7 +1152,7 @@ enum SobExec implements CodeExec {
     @Override
     public void execute(List<Operand> oprs, Context context) {
         Operand indexOpr = oprs.get(0);
-        IntData index = indexOpr.getValue();
+        IntData index = indexOpr.getIntValue();
         Address dest = (Address)oprs.get(1);
         boolean preFlagC = context.flagC.get();
 
@@ -1165,7 +1172,7 @@ enum CvtExec implements CodeExec {
     CvtExec;
     @Override
     public void execute(List<Operand> oprs, Context context) {
-        IntData srcVal = oprs.get(0).getValue();
+        IntData srcVal = oprs.get(0).getIntValue();
         Operand dest = oprs.get(1);
         IntData cvtVal = new IntData(srcVal.sint(), dest.dataType);
         dest.setValue(cvtVal);
@@ -1181,9 +1188,9 @@ enum CvtlpExec implements CodeExec {
     CvtlpExec;
     @Override
     public void execute(List<Operand> oprs, Context context) {
-        IntData srcVal = oprs.get(0).getValue();
+        IntData srcVal = oprs.get(0).getIntValue();
         long src = (long)srcVal.sint();
-        int len = oprs.get(1).getValue().uint();
+        int len = oprs.get(1).getIntValue().uint();
         Address dest = (Address)oprs.get(2);
 
         byte tail = src >= 0 ? (byte)12 : (byte)13;
@@ -1228,10 +1235,10 @@ enum AcbExec implements CodeExec {
     AcbExec;
     @Override
     public void execute(List<Operand> oprs, Context context) {
-        IntData limit = oprs.get(0).getValue();
-        IntData addend = oprs.get(1).getValue();
+        IntData limit = oprs.get(0).getIntValue();
+        IntData addend = oprs.get(1).getIntValue();
         Operand indexOpr = oprs.get(2);
-        IntData index = indexOpr.getValue();
+        IntData index = indexOpr.getIntValue();
         Address dest = (Address)oprs.get(3);
         boolean preFlagC = context.flagC.get();
 
@@ -1255,14 +1262,14 @@ enum MovcExec implements CodeExec {
     MovcExec;
     @Override
     public void execute(List<Operand> oprs, Context context) {
-        IntData srclen = oprs.get(0).getValue();
+        IntData srclen = oprs.get(0).getIntValue();
         int srcAddr = ((Address)oprs.get(1)).getAddress();
         IntData fillVal;
         IntData destlen;
         int destAddr;
         if (oprs.size() == 5) {
-            fillVal = oprs.get(2).getValue();
-            destlen = oprs.get(3).getValue();
+            fillVal = oprs.get(2).getIntValue();
+            destlen = oprs.get(3).getIntValue();
             destAddr = ((Address)oprs.get(4)).getAddress();
         } else {
             fillVal = null;
@@ -1273,7 +1280,7 @@ enum MovcExec implements CodeExec {
         int slen = srclen.uint();
         int dlen = destlen.uint();
         for (; slen > 0 && dlen >0; slen--, dlen--) {
-            IntData byteVal = context.memory.load(srcAddr++, DataType.B);
+            IntData byteVal = context.memory.loadInt(srcAddr++, DataType.B);
             context.memory.store(destAddr++, byteVal);
         }
         for (; dlen > 0; dlen--) {
@@ -1296,14 +1303,14 @@ enum CmpcExec implements CodeExec {
     CmpcExec;
     @Override
     public void execute(List<Operand> oprs, Context context) {
-        IntData str1len = oprs.get(0).getValue();
+        IntData str1len = oprs.get(0).getIntValue();
         int str1Addr = ((Address)oprs.get(1)).getAddress();
         IntData fillVal;
         IntData str2len;
         int str2Addr;
         if (oprs.size() == 5) {
-            fillVal = oprs.get(2).getValue();
-            str2len = oprs.get(3).getValue();
+            fillVal = oprs.get(2).getIntValue();
+            str2len = oprs.get(3).getIntValue();
             str2Addr = ((Address)oprs.get(4)).getAddress();
         } else {
             fillVal = null;
@@ -1315,22 +1322,22 @@ enum CmpcExec implements CodeExec {
         int s2len = str2len.uint();
         COMPC: {
             for (; s1len > 0 && s2len >0; s1len--, s2len--, str1Addr++, str2Addr++) {
-                IntData str1Val = context.memory.load(str1Addr, DataType.B);
-                IntData str2Val = context.memory.load(str2Addr, DataType.B);
+                IntData str1Val = context.memory.loadInt(str1Addr, DataType.B);
+                IntData str2Val = context.memory.loadInt(str2Addr, DataType.B);
                 Calculator.sub(str1Val, str2Val, context);
                 if (!context.flagZ.get()) {
                     break COMPC;
                 }
             }
             for (; s1len > 0; s1len--, str1Addr++) {
-                IntData str1Val = context.memory.load(str1Addr, DataType.B);
+                IntData str1Val = context.memory.loadInt(str1Addr, DataType.B);
                 Calculator.sub(str1Val, fillVal, context);
                 if (!context.flagZ.get()) {
                     break COMPC;
                 }
             }
             for (; s2len > 0; s2len--, str2Addr++) {
-                IntData str2Val = context.memory.load(str2Addr, DataType.B);
+                IntData str2Val = context.memory.loadInt(str2Addr, DataType.B);
                 Calculator.sub(fillVal, str2Val, context);
                 if (!context.flagZ.get()) {
                     break COMPC;
@@ -1362,12 +1369,12 @@ enum LoccExec implements CodeExec {
 
     @Override
     public void execute(List<Operand> oprs, Context context) {
-        IntData target = oprs.get(0).getValue();
-        int len = oprs.get(1).getValue().uint();
+        IntData target = oprs.get(0).getIntValue();
+        int len = oprs.get(1).getIntValue().uint();
         int addr = ((Address)oprs.get(2)).getAddress();
 
         for (; len > 0; len--, addr++) {
-            IntData byteVal = context.memory.load(addr, DataType.B);
+            IntData byteVal = context.memory.loadInt(addr, DataType.B);
             if (isDetected(target, byteVal)) {
                 break;
             }
@@ -1388,7 +1395,7 @@ enum MovpExec implements CodeExec {
     MovpExec;
     @Override
     public void execute(List<Operand> oprs, Context context) {
-        int len = oprs.get(0).getValue().uint();
+        int len = oprs.get(0).getIntValue().uint();
         int srcAddr = ((Address)oprs.get(1)).getAddress();
         int destAddr = ((Address)oprs.get(2)).getAddress();
         int mostSigSrcAddr = srcAddr;
@@ -1396,7 +1403,7 @@ enum MovpExec implements CodeExec {
 
         int byteslen = len / 2 + 1;
         for (; byteslen > 0; byteslen--) {
-            IntData byteVal = context.memory.load(srcAddr++, DataType.B);
+            IntData byteVal = context.memory.loadInt(srcAddr++, DataType.B);
             context.memory.store(destAddr++, byteVal);
         }
 
@@ -1411,7 +1418,7 @@ enum MovpExec implements CodeExec {
 
     private boolean isNegativePacked(int addr, int len, Context context) {
         int signAddr = addr + len / 2;
-        byte sign = (byte)(context.memory.load(signAddr, DataType.B).uint() & 0xf);
+        byte sign = (byte)(context.memory.loadInt(signAddr, DataType.B).uint() & 0xf);
         switch (sign) {
         case 0xa: case 0xc: case 0xe: case 0xf:
             return false;
@@ -1426,7 +1433,7 @@ enum MovpExec implements CodeExec {
     private boolean isZeroPacked(int addr, int len, Context context) {
         int numslen = len / 2;
         for (; numslen > 0; numslen--) {
-            int val = context.memory.load(addr++, DataType.B).uint();
+            int val = context.memory.loadInt(addr++, DataType.B).uint();
             if (val != 0) {
                 return false;
             }
@@ -1446,7 +1453,7 @@ enum EditpcExec implements CodeExec {
     @Override
     public void execute(List<Operand> oprs, Context context) {
         this.context = context;
-        int srcLen = oprs.get(0).getValue().uint();
+        int srcLen = oprs.get(0).getIntValue().uint();
         int srcAddr = ((Address)oprs.get(1)).getAddress();
         int ptnAddr = ((Address)oprs.get(2)).getAddress();
 
@@ -1480,7 +1487,7 @@ enum EditpcExec implements CodeExec {
 
     private int execOps(int ptnAddr) {
         do {
-            int code = context.memory.load(ptnAddr, DataType.B).uint();
+            int code = context.memory.loadInt(ptnAddr, DataType.B).uint();
             if (code == 0x0) {
                 doEnd();
                 return ptnAddr;
@@ -1584,7 +1591,7 @@ enum EditpcExec implements CodeExec {
 
     private boolean isNegativePacked(int addr, int len) {
         int signAddr = addr + len / 2;
-        byte sign = (byte)(context.memory.load(signAddr, DataType.B).uint() & 0xf);
+        byte sign = (byte)(context.memory.loadInt(signAddr, DataType.B).uint() & 0xf);
         switch (sign) {
         case 0xa: case 0xc: case 0xe: case 0xf:
             return false;
@@ -1601,13 +1608,13 @@ enum EditpcExec implements CodeExec {
         destChars.clear();
 
         if (len % 2 == 0) {
-            byte firstDigit = (byte)(context.memory.load(addr++, DataType.B).uint() & 0xf);
+            byte firstDigit = (byte)(context.memory.loadInt(addr++, DataType.B).uint() & 0xf);
             srcDigits.add(firstDigit);
             --len;
         }
 
         while (len > 0) {
-            int twoDigits = context.memory.load(addr++, DataType.B).uint();
+            int twoDigits = context.memory.loadInt(addr++, DataType.B).uint();
             srcDigits.add((byte)(twoDigits >>> 4));
             --len;
             if (len <= 0) {
